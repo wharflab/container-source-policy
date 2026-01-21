@@ -20,16 +20,13 @@ import (
 // MockRegistry is a test registry server that serves images with deterministic digests
 type MockRegistry struct {
 	Server   *httptest.Server
-	images   map[string]v1.Image
 	requests []string // tracks all requests made to the registry
 	mu       sync.Mutex
 }
 
 // NewMockRegistry creates a new mock registry server
 func NewMockRegistry() *MockRegistry {
-	mr := &MockRegistry{
-		images: make(map[string]v1.Image),
-	}
+	mr := &MockRegistry{}
 
 	// Wrap the registry handler to track requests
 	registryHandler := registry.New()
@@ -131,7 +128,6 @@ func (mr *MockRegistry) AddImage(repo, tag string, imageID int64) (string, error
 		return "", err
 	}
 
-	mr.images[repo+":"+tag] = img
 	return digest.String(), nil
 }
 
@@ -153,7 +149,6 @@ func (mr *MockRegistry) AddEmptyImage(repo, tag string) (string, error) {
 		return "", err
 	}
 
-	mr.images[repo+":"+tag] = img
 	return digest.String(), nil
 }
 
@@ -178,7 +173,6 @@ func (mr *MockRegistry) AddImageWithConfig(repo, tag string, config v1.Config) (
 		return "", err
 	}
 
-	mr.images[repo+":"+tag] = img
 	return digest.String(), nil
 }
 

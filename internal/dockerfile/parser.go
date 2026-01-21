@@ -68,8 +68,22 @@ func Parse(ctx context.Context, r io.Reader) ([]ImageRef, error) {
 }
 
 // containsVariable checks if the string contains unexpanded ARG/ENV syntax
+// Detects ${VAR}, $VAR patterns (but not $() command substitution which isn't valid in FROM)
 func containsVariable(s string) bool {
-	return strings.Contains(s, "${") || strings.Contains(s, "$(")
+	if strings.Contains(s, "${") {
+		return true
+	}
+	// Check for $VAR pattern (variable without braces)
+	for i := 0; i < len(s); i++ {
+		if s[i] == '$' && i+1 < len(s) {
+			next := s[i+1]
+			// $VAR pattern: $ followed by letter or underscore
+			if (next >= 'A' && next <= 'Z') || (next >= 'a' && next <= 'z') || next == '_' {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func parseFromInstruction(node *parser.Node, stageNames map[string]bool) (*ImageRef, error) {

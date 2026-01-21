@@ -105,6 +105,12 @@ func TestPin(t *testing.T) {
 				}
 			}
 
+			// Verify no unexpected manifest requests were made
+			manifestRequests := mockRegistry.RequestCount("/manifests/")
+			if manifestRequests != len(tc.expectedImages) {
+				t.Errorf("expected %d manifest requests, got %d.\nRequests: %v", len(tc.expectedImages), manifestRequests, mockRegistry.Requests())
+			}
+
 			snaps.MatchSnapshot(t, string(output))
 		})
 	}

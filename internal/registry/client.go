@@ -3,6 +3,7 @@ package registry
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/containers/image/v5/docker"
 	"github.com/containers/image/v5/docker/reference"
@@ -22,7 +23,9 @@ func NewClient() *Client {
 	sysCtx := &types.SystemContext{}
 
 	// Apply CONTAINERS_REGISTRIES_CONF or REGISTRIES_CONFIG_PATH env vars if set
-	_ = environment.UpdateRegistriesConf(sysCtx)
+	if err := environment.UpdateRegistriesConf(sysCtx); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to load registries config: %v\n", err)
+	}
 
 	return &Client{
 		sysCtx: sysCtx,

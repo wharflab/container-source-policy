@@ -16,7 +16,8 @@ This repository is a Go CLI for generating BuildKit source policy files (`docker
 
 - `make build`: builds the `container-source-policy` binary into the repo root
 - `make test`: runs `go test -race -count=1 -timeout=30s ./...`
-- `make lint`: runs `golangci-lint` (with `--fix`) and enforces formatting
+- `make lint`: runs `golangci-lint` for CI (no auto-fix)
+- `make lint-fix`: runs `golangci-lint` with `--fix` for local development
 - `make clean`: removes the built binary and deletes `bin/` + `dist/`
 
 Local usage examples:
