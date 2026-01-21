@@ -1,0 +1,86 @@
+
+[TestPinDryRun/simple - 1]
+{
+  "version": 1,
+  "rules": [
+    {
+      "action": "CONVERT",
+      "selector": {
+        "identifier": "docker-image://alpine:3.18",
+        "matchType": "EXACT"
+      },
+      "updates": {
+        "identifier": "docker-image://docker.io/library/alpine:3.18@sha256:dry-run-placeholder"
+      }
+    }
+  ]
+}
+
+---
+
+[TestPinDryRun/multistage - 1]
+{
+  "version": 1,
+  "rules": [
+    {
+      "action": "CONVERT",
+      "selector": {
+        "identifier": "docker-image://golang:1.21",
+        "matchType": "EXACT"
+      },
+      "updates": {
+        "identifier": "docker-image://docker.io/library/golang:1.21@sha256:dry-run-placeholder"
+      }
+    },
+    {
+      "action": "CONVERT",
+      "selector": {
+        "identifier": "docker-image://alpine:3.18",
+        "matchType": "EXACT"
+      },
+      "updates": {
+        "identifier": "docker-image://docker.io/library/alpine:3.18@sha256:dry-run-placeholder"
+      }
+    }
+  ]
+}
+
+---
+
+[TestPinDryRun/ghcr - 1]
+{
+  "version": 1,
+  "rules": [
+    {
+      "action": "CONVERT",
+      "selector": {
+        "identifier": "docker-image://ghcr.io/actions/actions-runner:latest",
+        "matchType": "EXACT"
+      },
+      "updates": {
+        "identifier": "docker-image://ghcr.io/actions/actions-runner:latest@sha256:dry-run-placeholder"
+      }
+    }
+  ]
+}
+
+---
+
+[TestPinDryRun/scratch - 1]
+{
+  "version": 1,
+  "rules": [
+    {
+      "action": "CONVERT",
+      "selector": {
+        "identifier": "docker-image://golang:1.21",
+        "matchType": "EXACT"
+      },
+      "updates": {
+        "identifier": "docker-image://docker.io/library/golang:1.21@sha256:dry-run-placeholder"
+      }
+    }
+  ]
+}
+
+---

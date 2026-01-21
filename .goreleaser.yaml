@@ -1,0 +1,72 @@
+version: 2
+
+project_name: container-source-policy
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/tinovyatkin/container-source-policy/internal/version.Version={{.Version}}
+      - -X github.com/tinovyatkin/container-source-policy/internal/version.Commit={{.Commit}}
+      - -X github.com/tinovyatkin/container-source-policy/internal/version.Date={{.Date}}
+
+archives:
+  - format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+
+# Package managers (inspired by lefthook)
+nfpms:
+  - package_name: container-source-policy
+    homepage: https://github.com/tinovyatkin/container-source-policy
+    maintainer: Konstantin Vyatkin <tino@vtkn.io>
+    description: CLI tool for generating BuildKit source policy files
+    license: MIT
+    formats:
+      - deb
+      - rpm
+      - apk
+
+brews:
+  - repository:
+      owner: tinovyatkin
+      name: homebrew-tap
+    homepage: https://github.com/tinovyatkin/container-source-policy
+    description: CLI tool for generating BuildKit source policy files
+    license: MIT
+    skip_upload: auto
