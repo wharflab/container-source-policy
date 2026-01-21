@@ -44,7 +44,7 @@ func (c *Client) GetDigest(ctx context.Context, ref reference.Named) (string, er
 	if err != nil {
 		return "", fmt.Errorf("failed to create image source for %s: %w", ref.String(), err)
 	}
-	defer imgSrc.Close()
+	defer func() { _ = imgSrc.Close() }()
 
 	manifestBytes, _, err := imgSrc.GetManifest(ctx, nil)
 	if err != nil {

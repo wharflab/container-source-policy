@@ -36,3 +36,6 @@ go.work.sum
 
 # GoReleaser
 dist/
+
+# Local binaries (golangci-lint, etc.)
+bin/

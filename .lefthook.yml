@@ -1,0 +1,20 @@
+assert_lefthook_installed: true
+
+pre-commit:
+  parallel: true
+  jobs:
+    - name: lint & test
+      glob: "*.go"
+      group:
+        jobs:
+          - run: make lint
+            tags: lint
+            stage_fixed: true
+
+          - run: make test
+            tags: test
+
+pre-push:
+  jobs:
+    - name: build
+      run: make build

@@ -23,12 +23,12 @@ func TestMain(m *testing.M) {
 	// Build the module's main package
 	cmd := exec.Command("go", "build", "-o", binaryPath, "github.com/tinovyatkin/container-source-policy")
 	if out, err := cmd.CombinedOutput(); err != nil {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		panic("failed to build binary: " + string(out))
 	}
 
 	code := m.Run()
-	os.RemoveAll(tmpDir)
+	_ = os.RemoveAll(tmpDir)
 	os.Exit(code)
 }
 

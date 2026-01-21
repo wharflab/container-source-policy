@@ -8,6 +8,7 @@ import (
 
 	"github.com/containers/image/v5/docker/reference"
 	"github.com/opencontainers/go-digest"
+
 	"github.com/tinovyatkin/container-source-policy/internal/dockerfile"
 	"github.com/tinovyatkin/container-source-policy/internal/policy"
 	"github.com/tinovyatkin/container-source-policy/internal/registry"
