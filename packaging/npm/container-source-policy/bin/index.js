@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
-var spawn = require('child_process').spawn;
+const { spawn } = require('child_process');
 const { getExePath } = require('../get-exe');
 
-var command_args = process.argv.slice(2);
+const command_args = process.argv.slice(2);
 
-var child = spawn(
+const child = spawn(
     getExePath(),
     command_args,
     { stdio: "inherit" });
