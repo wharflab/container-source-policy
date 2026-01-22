@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   test:
@@ -23,8 +24,15 @@ jobs:
       - name: Build
         run: go build ./...
 
-      - name: Test
-        run: go test ./... -v
+      - name: Test with coverage
+        run: go test ./... -v -race -coverprofile=coverage.out -covermode=atomic
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          use_oidc: true
+          files: coverage.out
+          fail_ci_if_error: true
 
   lint:
     runs-on: ubuntu-latest
