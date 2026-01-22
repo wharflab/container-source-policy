@@ -18,6 +18,7 @@ pre-commit:
     rumdl:
       glob: "**/*.md"
       run: uv tool run rumdl check --fix --output-format concise {staged_files}
+      stage_fixed: true
     yamllint:
       glob: "*.{yml,yaml}"
       run: uvx yamllint {staged_files}
