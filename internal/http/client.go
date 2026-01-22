@@ -55,7 +55,7 @@ func (c *Client) GetChecksum(ctx context.Context, rawURL string) (string, error)
 			return checksum, nil
 		}
 
-	case strings.HasSuffix(parsedURL.Host, ".amazonaws.com") || strings.HasSuffix(parsedURL.Host, ".s3."):
+	case strings.HasSuffix(parsedURL.Host, ".amazonaws.com") || strings.Contains(parsedURL.Host, ".s3.") || strings.HasPrefix(parsedURL.Host, "s3."):
 		// S3: try to get checksum from headers
 		checksum, err := c.getChecksumFromS3(ctx, rawURL)
 		if err == nil && checksum != "" {
