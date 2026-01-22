@@ -6,7 +6,7 @@ readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Konstantin Vyatkin", email = "tino@vtkn.io" }]
-requires-python = ">=3.10"
+requires-python = ">=3.14.2"
 classifiers = [
   "Operating System :: OS Independent",
   "Topic :: Software Development :: Version Control :: Git",
