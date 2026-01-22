@@ -1,13 +1,16 @@
 package integration
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/gkampitakis/go-snaps/snaps"
 
+	"github.com/tinovyatkin/container-source-policy/internal/policy"
 	"github.com/tinovyatkin/container-source-policy/internal/testutil"
 )
 
@@ -113,5 +116,138 @@ func TestPin(t *testing.T) {
 
 			snaps.MatchSnapshot(t, string(output))
 		})
+	}
+}
+
+// TestPinHTTPSources tests HTTP source policy generation with a mock HTTP server
+func TestPinHTTPSources(t *testing.T) {
+	// Create mock HTTP server
+	mockHTTP := testutil.NewMockHTTPServer()
+	defer mockHTTP.Close()
+
+	// Add a test file to the mock server with deterministic content
+	testContent := "This is test content for HTTP source policy testing.\n"
+	expectedChecksum := mockHTTP.AddFile("/test/file.txt", testContent)
+
+	// Create a temporary Dockerfile that uses the mock server URL
+	tmpDir, err := os.MkdirTemp("", "http-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	dockerfilePath := filepath.Join(tmpDir, "Dockerfile")
+	dockerfileContent := `FROM alpine:3.18
+ADD ` + mockHTTP.URL() + `/test/file.txt /app/file.txt
+`
+	if err := os.WriteFile(dockerfilePath, []byte(dockerfileContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Reset request tracking
+	mockRegistry.ResetRequests()
+	mockHTTP.ResetRequests()
+
+	// Run the pin command
+	cmd := exec.Command(binaryPath, "pin", "--stdout", dockerfilePath)
+	cmd.Env = append(os.Environ(), "CONTAINERS_REGISTRIES_CONF="+registryConf)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("command failed: %v\noutput: %s", err, output)
+	}
+
+	// Verify mock HTTP server was hit
+	if !mockHTTP.HasRequest("/test/file.txt") {
+		t.Errorf("expected mock HTTP server to be hit for /test/file.txt, but it wasn't.\nRequests: %v", mockHTTP.Requests())
+	}
+
+	// Parse the output and verify it contains the HTTP checksum rule
+	var pol policy.Policy
+	if err := json.Unmarshal(output, &pol); err != nil {
+		t.Fatalf("failed to parse policy output: %v\noutput: %s", err, output)
+	}
+
+	// Should have 2 rules: one for alpine:3.18, one for HTTP source
+	if len(pol.Rules) != 2 {
+		t.Errorf("expected 2 rules, got %d", len(pol.Rules))
+	}
+
+	// Find the HTTP rule
+	var httpRule *policy.Rule
+	for i := range pol.Rules {
+		if strings.Contains(pol.Rules[i].Selector.Identifier, mockHTTP.URL()) {
+			httpRule = &pol.Rules[i]
+			break
+		}
+	}
+
+	if httpRule == nil {
+		t.Fatal("HTTP rule not found in policy output")
+	}
+
+	// Verify the HTTP rule
+	if httpRule.Action != policy.PolicyActionConvert {
+		t.Errorf("expected action CONVERT, got %s", httpRule.Action)
+	}
+
+	if httpRule.Updates == nil || httpRule.Updates.Attrs == nil {
+		t.Fatal("HTTP rule missing updates.attrs")
+	}
+
+	if httpRule.Updates.Attrs["http.checksum"] != expectedChecksum {
+		t.Errorf("expected checksum %s, got %s", expectedChecksum, httpRule.Updates.Attrs["http.checksum"])
+	}
+}
+
+// TestPinHTTPSourcesWithExistingChecksum tests that ADD with --checksum is skipped
+func TestPinHTTPSourcesWithExistingChecksum(t *testing.T) {
+	// Create mock HTTP server
+	mockHTTP := testutil.NewMockHTTPServer()
+	defer mockHTTP.Close()
+
+	// Add a test file to the mock server
+	mockHTTP.AddFile("/test/file.txt", "test content")
+
+	// Create a temporary Dockerfile that uses --checksum flag (should be skipped)
+	tmpDir, err := os.MkdirTemp("", "http-test-checksum")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	dockerfilePath := filepath.Join(tmpDir, "Dockerfile")
+	dockerfileContent := `FROM alpine:3.18
+ADD --checksum=sha256:0000000000000000000000000000000000000000000000000000000000000000 ` + mockHTTP.URL() + `/test/file.txt /app/file.txt
+`
+	if err := os.WriteFile(dockerfilePath, []byte(dockerfileContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Reset request tracking
+	mockRegistry.ResetRequests()
+	mockHTTP.ResetRequests()
+
+	// Run the pin command
+	cmd := exec.Command(binaryPath, "pin", "--stdout", dockerfilePath)
+	cmd.Env = append(os.Environ(), "CONTAINERS_REGISTRIES_CONF="+registryConf)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("command failed: %v\noutput: %s", err, output)
+	}
+
+	// Verify mock HTTP server was NOT hit (because --checksum is already specified)
+	if mockHTTP.HasRequest("/test/file.txt") {
+		t.Errorf("expected mock HTTP server NOT to be hit (ADD has --checksum), but it was.\nRequests: %v", mockHTTP.Requests())
+	}
+
+	// Parse the output - should only have the alpine:3.18 rule, no HTTP rule
+	var pol policy.Policy
+	if err := json.Unmarshal(output, &pol); err != nil {
+		t.Fatalf("failed to parse policy output: %v\noutput: %s", err, output)
+	}
+
+	// Should have only 1 rule (for alpine:3.18)
+	if len(pol.Rules) != 1 {
+		t.Errorf("expected 1 rule (no HTTP rule since --checksum present), got %d", len(pol.Rules))
 	}
 }

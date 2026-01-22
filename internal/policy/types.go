@@ -83,3 +83,21 @@ func (p *Policy) AddPinRule(originalRef, pinnedRef string) {
 	}
 	p.Rules = append(p.Rules, rule)
 }
+
+// AddHTTPChecksumRule adds a rule that pins an HTTP/HTTPS source to a specific checksum
+// The checksum should be in the format "sha256:..." or similar digest format
+func (p *Policy) AddHTTPChecksumRule(url, checksum string) {
+	rule := Rule{
+		Action: PolicyActionConvert,
+		Selector: Selector{
+			Identifier: url,
+			MatchType:  MatchTypeExact,
+		},
+		Updates: &Update{
+			Attrs: map[string]string{
+				"http.checksum": checksum,
+			},
+		},
+	}
+	p.Rules = append(p.Rules, rule)
+}
