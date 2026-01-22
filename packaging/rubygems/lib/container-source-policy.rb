@@ -1,1 +1,5 @@
-# Empty lib file for container-source-policy gem
+# frozen_string_literal: true
+
+module ContainerSourcePolicy
+  VERSION = "0.1.0"
+end
