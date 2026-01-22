@@ -98,7 +98,7 @@ container-source-policy completion zsh
 
 **Optimized checksum fetching** — avoids downloading large files when possible:
 - `raw.githubusercontent.com`: extracts SHA256 from ETag header
-- GitHub releases: uses the API `digest` field
+- GitHub releases: uses the API `digest` field (set `GITHUB_TOKEN` for higher rate limits)
 - S3: uses `x-amz-checksum-sha256` header (with `x-amz-checksum-mode: ENABLED`)
 - Fallback: downloads and computes SHA256
 
