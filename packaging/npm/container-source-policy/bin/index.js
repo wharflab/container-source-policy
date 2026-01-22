@@ -10,6 +10,11 @@ const child = spawn(
     command_args,
     { stdio: "inherit" });
 
+child.on('error', function (err) {
+    console.error(`Failed to execute binary: ${err.message}`);
+    process.exit(1);
+});
+
 child.on('close', function (code) {
     if (code !== 0) {
         process.exit(code);
