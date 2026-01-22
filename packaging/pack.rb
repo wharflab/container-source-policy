@@ -61,50 +61,47 @@ module Pack
     puts "done"
   end
 
+  # Map goreleaser output directories to package destinations
+  # Goreleaser outputs: container-source-policy_{goos}_{goarch}_{variant}/container-source-policy
+  # where variant is v1 for amd64, v8.0 for arm64
+  BINARY_MAPPING = {
+    # [goos, goarch, variant, extension]
+    ["linux",   "amd64", "v1",   ""]     => { npm: "linux-x64",    gem: "linux-x64",    pypi: "linux-x86_64" },
+    ["linux",   "arm64", "v8.0", ""]     => { npm: "linux-arm64",  gem: "linux-arm64",  pypi: "linux-arm64" },
+    ["darwin",  "amd64", "v1",   ""]     => { npm: "darwin-x64",   gem: "darwin-x64",   pypi: "darwin-x86_64" },
+    ["darwin",  "arm64", "v8.0", ""]     => { npm: "darwin-arm64", gem: "darwin-arm64", pypi: "darwin-arm64" },
+    ["windows", "amd64", "v1",   ".exe"] => { npm: "windows-x64",  gem: "windows-x64",  pypi: "windows-x86_64" },
+    ["windows", "arm64", "v8.0", ".exe"] => { npm: "windows-arm64",gem: "windows-arm64",pypi: "windows-arm64" },
+    ["freebsd", "amd64", "v1",   ""]     => { npm: "freebsd-x64",  gem: "freebsd-x64",  pypi: "freebsd-x86_64" },
+  }.freeze
+
   def put_binaries
     cd(__dir__)
     puts "Putting binaries to packages..."
-    
-    # NPM binaries
-    {
-      "#{DIST}/container-source-policy_#{VERSION}_Linux_x86_64"        => "npm/container-source-policy-linux-x64/bin/container-source-policy",
-      "#{DIST}/container-source-policy_#{VERSION}_Linux_arm64"         => "npm/container-source-policy-linux-arm64/bin/container-source-policy",
-      "#{DIST}/container-source-policy_#{VERSION}_Freebsd_x86_64"      => "npm/container-source-policy-freebsd-x64/bin/container-source-policy",
-      "#{DIST}/container-source-policy_#{VERSION}_Windows_x86_64.exe"  => "npm/container-source-policy-windows-x64/bin/container-source-policy.exe",
-      "#{DIST}/container-source-policy_#{VERSION}_Windows_arm64.exe"   => "npm/container-source-policy-windows-arm64/bin/container-source-policy.exe",
-      "#{DIST}/container-source-policy_#{VERSION}_MacOS_x86_64"        => "npm/container-source-policy-darwin-x64/bin/container-source-policy",
-      "#{DIST}/container-source-policy_#{VERSION}_MacOS_arm64"         => "npm/container-source-policy-darwin-arm64/bin/container-source-policy",
-    }.each do |(source, dest)|
-      mkdir_p(File.dirname(dest))
-      cp(source, dest, verbose: true)
-    end
 
-    # Rubygems binaries
-    {
-      "#{DIST}/container-source-policy_#{VERSION}_Linux_x86_64"        => "rubygems/libexec/container-source-policy-linux-x64/container-source-policy",
-      "#{DIST}/container-source-policy_#{VERSION}_Linux_arm64"         => "rubygems/libexec/container-source-policy-linux-arm64/container-source-policy",
-      "#{DIST}/container-source-policy_#{VERSION}_Freebsd_x86_64"      => "rubygems/libexec/container-source-policy-freebsd-x64/container-source-policy",
-      "#{DIST}/container-source-policy_#{VERSION}_Windows_x86_64.exe"  => "rubygems/libexec/container-source-policy-windows-x64/container-source-policy.exe",
-      "#{DIST}/container-source-policy_#{VERSION}_Windows_arm64.exe"   => "rubygems/libexec/container-source-policy-windows-arm64/container-source-policy.exe",
-      "#{DIST}/container-source-policy_#{VERSION}_MacOS_x86_64"        => "rubygems/libexec/container-source-policy-darwin-x64/container-source-policy",
-      "#{DIST}/container-source-policy_#{VERSION}_MacOS_arm64"         => "rubygems/libexec/container-source-policy-darwin-arm64/container-source-policy",
-    }.each do |(source, dest)|
-      mkdir_p(File.dirname(dest))
-      cp(source, dest, verbose: true)
-    end
+    BINARY_MAPPING.each do |(goos, goarch, variant, ext), targets|
+      source_dir = "#{DIST}/container-source-policy_#{goos}_#{goarch}_#{variant}"
+      source = "#{source_dir}/container-source-policy#{ext}"
 
-    # PyPI binaries
-    {
-      "#{DIST}/container-source-policy_#{VERSION}_Linux_x86_64"        => "pypi/container_source_policy/bin/container-source-policy-linux-x86_64/container-source-policy",
-      "#{DIST}/container-source-policy_#{VERSION}_Linux_arm64"         => "pypi/container_source_policy/bin/container-source-policy-linux-arm64/container-source-policy",
-      "#{DIST}/container-source-policy_#{VERSION}_Freebsd_x86_64"      => "pypi/container_source_policy/bin/container-source-policy-freebsd-x86_64/container-source-policy",
-      "#{DIST}/container-source-policy_#{VERSION}_Windows_x86_64.exe"  => "pypi/container_source_policy/bin/container-source-policy-windows-x86_64/container-source-policy.exe",
-      "#{DIST}/container-source-policy_#{VERSION}_Windows_arm64.exe"   => "pypi/container_source_policy/bin/container-source-policy-windows-arm64/container-source-policy.exe",
-      "#{DIST}/container-source-policy_#{VERSION}_MacOS_x86_64"        => "pypi/container_source_policy/bin/container-source-policy-darwin-x86_64/container-source-policy",
-      "#{DIST}/container-source-policy_#{VERSION}_MacOS_arm64"         => "pypi/container_source_policy/bin/container-source-policy-darwin-arm64/container-source-policy",
-    }.each do |(source, dest)|
-      mkdir_p(File.dirname(dest))
-      cp(source, dest, verbose: true)
+      unless File.exist?(source)
+        puts "Skipping #{source} (not found)"
+        next
+      end
+
+      # NPM
+      npm_dest = "npm/container-source-policy-#{targets[:npm]}/bin/container-source-policy#{ext}"
+      mkdir_p(File.dirname(npm_dest))
+      cp(source, npm_dest, verbose: true)
+
+      # Rubygems
+      gem_dest = "rubygems/libexec/container-source-policy-#{targets[:gem]}/container-source-policy#{ext}"
+      mkdir_p(File.dirname(gem_dest))
+      cp(source, gem_dest, verbose: true)
+
+      # PyPI
+      pypi_dest = "pypi/container_source_policy/bin/container-source-policy-#{targets[:pypi]}/container-source-policy#{ext}"
+      mkdir_p(File.dirname(pypi_dest))
+      cp(source, pypi_dest, verbose: true)
     end
 
     puts "done"
