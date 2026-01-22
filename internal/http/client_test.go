@@ -99,72 +99,7 @@ func TestComputeChecksum(t *testing.T) {
 	}
 }
 
-func TestGetChecksumFromRawGitHub(t *testing.T) {
-	tests := []struct {
-		name         string
-		etag         string
-		statusCode   int
-		wantChecksum string
-		wantErr      bool
-	}{
-		{
-			name:         "valid SHA256 ETag",
-			etag:         "abc123def456abc123def456abc123def456abc123def456abc123def456abcd",
-			statusCode:   http.StatusOK,
-			wantChecksum: "sha256:abc123def456abc123def456abc123def456abc123def456abc123def456abcd",
-			wantErr:      false,
-		},
-		{
-			name:         "valid SHA256 ETag with quotes",
-			etag:         "\"abc123def456abc123def456abc123def456abc123def456abc123def456abcd\"",
-			statusCode:   http.StatusOK,
-			wantChecksum: "sha256:abc123def456abc123def456abc123def456abc123def456abc123def456abcd",
-			wantErr:      false,
-		},
-		{
-			name:         "invalid ETag (not SHA256)",
-			etag:         "not-a-sha256-hash",
-			statusCode:   http.StatusOK,
-			wantChecksum: "",
-			wantErr:      true,
-		},
-		{
-			name:         "server error",
-			etag:         "",
-			statusCode:   http.StatusNotFound,
-			wantChecksum: "",
-			wantErr:      true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Method != http.MethodHead {
-					t.Errorf("expected HEAD request, got %s", r.Method)
-				}
-				if tt.etag != "" {
-					w.Header().Set("ETag", tt.etag)
-				}
-				w.WriteHeader(tt.statusCode)
-			}))
-			defer server.Close()
-
-			client := NewClient()
-			checksum, err := client.getChecksumFromRawGitHub(context.Background(), server.URL)
-
-			if (err != nil) != tt.wantErr {
-				t.Errorf("getChecksumFromRawGitHub() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if checksum != tt.wantChecksum {
-				t.Errorf("getChecksumFromRawGitHub() = %v, want %v", checksum, tt.wantChecksum)
-			}
-		})
-	}
-}
-
-func TestGetChecksumFromS3(t *testing.T) {
+func TestGetChecksumFromHEAD(t *testing.T) {
 	tests := []struct {
 		name         string
 		headers      map[string]string
@@ -172,9 +107,46 @@ func TestGetChecksumFromS3(t *testing.T) {
 		wantChecksum string
 		wantErr      bool
 	}{
+		// Non-S3 servers with SHA256 ETag (like raw.githubusercontent.com)
 		{
-			name: "SHA256 checksum header",
+			name: "valid SHA256 ETag",
 			headers: map[string]string{
+				"ETag": "abc123def456abc123def456abc123def456abc123def456abc123def456abcd",
+			},
+			statusCode:   http.StatusOK,
+			wantChecksum: "sha256:abc123def456abc123def456abc123def456abc123def456abc123def456abcd",
+			wantErr:      false,
+		},
+		{
+			name: "valid SHA256 ETag with quotes",
+			headers: map[string]string{
+				"ETag": "\"abc123def456abc123def456abc123def456abc123def456abc123def456abcd\"",
+			},
+			statusCode:   http.StatusOK,
+			wantChecksum: "sha256:abc123def456abc123def456abc123def456abc123def456abc123def456abcd",
+			wantErr:      false,
+		},
+		{
+			name: "invalid ETag (not SHA256) on non-S3",
+			headers: map[string]string{
+				"ETag": "not-a-sha256-hash",
+			},
+			statusCode:   http.StatusOK,
+			wantChecksum: "",
+			wantErr:      true,
+		},
+		{
+			name:         "server error",
+			headers:      map[string]string{},
+			statusCode:   http.StatusNotFound,
+			wantChecksum: "",
+			wantErr:      true,
+		},
+		// S3 servers (detected via Server: AmazonS3 header)
+		{
+			name: "S3 with SHA256 checksum header",
+			headers: map[string]string{
+				"Server":                "AmazonS3",
 				"x-amz-checksum-sha256": "LCa0a2j/xo/5m0U8HTBBNBNCLXBkg7+g+YpeiGJm564=",
 			},
 			statusCode:   http.StatusOK,
@@ -182,8 +154,9 @@ func TestGetChecksumFromS3(t *testing.T) {
 			wantErr:      false,
 		},
 		{
-			name: "SHA1 checksum header (fallback)",
+			name: "S3 with SHA1 checksum header (fallback)",
 			headers: map[string]string{
+				"Server":              "AmazonS3",
 				"x-amz-checksum-sha1": "Lve95gjOVATpfV8EL5X4nxwjKHE=",
 			},
 			statusCode:   http.StatusOK,
@@ -191,26 +164,30 @@ func TestGetChecksumFromS3(t *testing.T) {
 			wantErr:      false,
 		},
 		{
-			name: "MD5 ETag for single-part upload",
+			name: "S3 with MD5 ETag for single-part upload",
 			headers: map[string]string{
-				"ETag": "\"098f6bcd4621d373cade4e832627b4f6\"",
+				"Server": "AmazonS3",
+				"ETag":   "\"098f6bcd4621d373cade4e832627b4f6\"",
 			},
 			statusCode:   http.StatusOK,
 			wantChecksum: "md5:098f6bcd4621d373cade4e832627b4f6",
 			wantErr:      false,
 		},
 		{
-			name: "multipart ETag is skipped",
+			name: "S3 multipart ETag is skipped",
 			headers: map[string]string{
-				"ETag": "\"098f6bcd4621d373cade4e832627b4f6-5\"",
+				"Server": "AmazonS3",
+				"ETag":   "\"098f6bcd4621d373cade4e832627b4f6-5\"",
 			},
 			statusCode:   http.StatusOK,
 			wantChecksum: "",
 			wantErr:      true,
 		},
 		{
-			name:         "no checksum headers",
-			headers:      map[string]string{},
+			name: "S3 with no checksum headers",
+			headers: map[string]string{
+				"Server": "AmazonS3",
+			},
 			statusCode:   http.StatusOK,
 			wantChecksum: "",
 			wantErr:      true,
@@ -223,7 +200,7 @@ func TestGetChecksumFromS3(t *testing.T) {
 				if r.Method != http.MethodHead {
 					t.Errorf("expected HEAD request, got %s", r.Method)
 				}
-				// Verify the checksum mode header is sent
+				// Verify the checksum mode header is always sent (ignored by non-S3)
 				if r.Header.Get("x-amz-checksum-mode") != "ENABLED" {
 					t.Error("expected x-amz-checksum-mode: ENABLED header")
 				}
@@ -235,26 +212,32 @@ func TestGetChecksumFromS3(t *testing.T) {
 			defer server.Close()
 
 			client := NewClient()
-			checksum, err := client.getChecksumFromS3(context.Background(), server.URL)
+			checksum, err := client.getChecksumFromHEAD(context.Background(), server.URL)
 
 			if (err != nil) != tt.wantErr {
-				t.Errorf("getChecksumFromS3() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("getChecksumFromHEAD() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if checksum != tt.wantChecksum {
-				t.Errorf("getChecksumFromS3() = %v, want %v", checksum, tt.wantChecksum)
+				t.Errorf("getChecksumFromHEAD() = %v, want %v", checksum, tt.wantChecksum)
 			}
 		})
 	}
 }
 
 func TestGetChecksum_Fallback(t *testing.T) {
-	// Test that GetChecksum falls back to computing checksum when optimized methods fail
+	// Test that GetChecksum falls back to computing checksum when HEAD returns no usable checksum
 	content := []byte("test content")
 	expectedHash := sha256.Sum256(content)
 	expectedChecksum := "sha256:" + hex.EncodeToString(expectedHash[:])
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodHead {
+			// Return OK but with no usable checksum headers
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		// GET request - return content for checksum computation
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(content)
 	}))
