@@ -1,0 +1,42 @@
+{
+  "name": "container-source-policy",
+  "version": "0.1.0",
+  "description": "Generate Buildx container source policy file for a given Dockerfile",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tinovyatkin/container-source-policy.git"
+  },
+  "main": "bin/index.js",
+  "files": [
+    "postinstall.js",
+    "get-exe.js"
+  ],
+  "bin": {
+    "container-source-policy": "bin/index.js"
+  },
+  "keywords": [
+    "docker",
+    "buildx",
+    "container",
+    "policy",
+    "security"
+  ],
+  "author": "tinovyatkin",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/tinovyatkin/container-source-policy/issues"
+  },
+  "homepage": "https://github.com/tinovyatkin/container-source-policy#readme",
+  "optionalDependencies": {
+    "container-source-policy-darwin-arm64": "0.1.0",
+    "container-source-policy-darwin-x64": "0.1.0",
+    "container-source-policy-linux-arm64": "0.1.0",
+    "container-source-policy-linux-x64": "0.1.0",
+    "container-source-policy-windows-arm64": "0.1.0",
+    "container-source-policy-windows-x64": "0.1.0",
+    "container-source-policy-freebsd-x64": "0.1.0"
+  },
+  "scripts": {
+    "postinstall": "node postinstall.js"
+  }
+}

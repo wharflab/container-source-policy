@@ -1,0 +1,20 @@
+{
+  "name": "container-source-policy-freebsd-x64",
+  "version": "0.1.0",
+  "description": "The freebsd x64 binary for container-source-policy",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tinovyatkin/container-source-policy.git"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/tinovyatkin/container-source-policy/issues"
+  },
+  "homepage": "https://github.com/tinovyatkin/container-source-policy#readme",
+  "os": [
+    "freebsd"
+  ],
+  "cpu": [
+    "x64"
+  ]
+}

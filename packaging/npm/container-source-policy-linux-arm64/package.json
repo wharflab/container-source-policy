@@ -1,0 +1,20 @@
+{
+  "name": "container-source-policy-linux-arm64",
+  "version": "0.1.0",
+  "description": "The linux arm64 binary for container-source-policy",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tinovyatkin/container-source-policy.git"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/tinovyatkin/container-source-policy/issues"
+  },
+  "homepage": "https://github.com/tinovyatkin/container-source-policy#readme",
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "arm64"
+  ]
+}

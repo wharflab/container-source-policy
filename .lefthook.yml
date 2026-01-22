@@ -13,7 +13,7 @@ pre-commit:
       stage_fixed: true
     taplo:
       glob: "**/*.toml"
-      run: npx -y -q taplo format {staged_files}
+      run: npx -y -q @taplo/cli format {staged_files}
       stage_fixed: true
     rumdl:
       glob: "**/*.md"

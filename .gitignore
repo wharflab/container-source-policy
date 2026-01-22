@@ -39,3 +39,24 @@ dist/
 
 # Local binaries (golangci-lint, etc.)
 bin/
+
+# Build artifacts
+*.tar
+
+# NPM
+node_modules/
+package-lock.json
+packaging/npm/**/bin/container-source-policy*
+packaging/npm/**/README.md
+
+# PyPI
+packaging/pypi/container_source_policy/bin/container-source-policy-*
+packaging/pypi/dist/
+*.egg-info/
+__pycache__/
+*.pyc
+
+# Rubygems
+packaging/rubygems/libexec/
+packaging/rubygems/pkg/
+*.gem

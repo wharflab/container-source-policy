@@ -1,0 +1,20 @@
+{
+  "name": "container-source-policy-darwin-x64",
+  "version": "0.1.0",
+  "description": "The darwin x64 binary for container-source-policy",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tinovyatkin/container-source-policy.git"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/tinovyatkin/container-source-policy/issues"
+  },
+  "homepage": "https://github.com/tinovyatkin/container-source-policy#readme",
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "x64"
+  ]
+}
