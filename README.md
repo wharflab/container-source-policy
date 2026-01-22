@@ -13,31 +13,34 @@ docker buildx build --source-policy-file source-policy.json -t my-image:dev .
 
 ## Install
 
-### Go (build from source)
+Run directly without installing (recommended):
 
 ```bash
+# npm/bun
+npx container-source-policy --help
+bunx container-source-policy --help
+
+# Python
+uvx container-source-policy --help
+
+# Ruby (requires RubyGems 3.3+)
+gem exec container-source-policy --help
+```
+
+Or install globally:
+
+```bash
+# Go (build from source)
 go install github.com/tinovyatkin/container-source-policy@latest
-```
 
-### npm (prebuilt binary)
-
-```bash
+# npm
 npm i -g container-source-policy
-container-source-policy --help
-```
 
-### PyPI (prebuilt binary)
-
-```bash
+# Python
 pipx install container-source-policy
-container-source-policy --help
-```
 
-### RubyGems (prebuilt binary)
-
-```bash
+# Ruby
 gem install container-source-policy
-container-source-policy --help
 ```
 
 ## Usage
