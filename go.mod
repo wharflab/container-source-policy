@@ -1,6 +1,6 @@
 module github.com/tinovyatkin/container-source-policy
 
-go 1.24.3
+go 1.25.6
 
 require (
 	github.com/containers/image/v5 v5.35.0
