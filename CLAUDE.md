@@ -35,6 +35,10 @@ go run . pin --help
 go run . pin --stdout Dockerfile
 ```
 
+## Commit Messages
+
+- Use semantic commit rules (Conventional Commits), e.g. `feat: …`, `fix: …`, `chore: …` (enforced via `commitlint` in `.lefthook.yml`).
+
 ## Project Structure
 
 ```

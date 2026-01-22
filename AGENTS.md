@@ -39,6 +39,6 @@ Local usage examples:
 
 ## Commit & Pull Request Guidelines
 
-- Follow the repo’s existing convention: short, imperative Conventional Commit-style messages like `feat: …`, `fix: …`, `chore: …`.
+- Follow semantic commit rules (Conventional Commits), e.g. `feat: …`, `fix: …`, `chore: …` (enforced via `commitlint` in `.lefthook.yml`).
 - Run `make lint` and `make test` before opening a PR (Lefthook runs these on `pre-commit` and `make build` on `pre-push`).
 - PRs should explain *what* changed and *why*, note any snapshot updates, and avoid committing build outputs (the `container-source-policy` binary is Git-ignored).
