@@ -5,10 +5,10 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"os"
-	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/moby/buildkit/util/gitutil"
 )
 
 // Client handles git operations
@@ -67,6 +67,7 @@ func ParseGitURL(rawURL string) (*GitRef, error) {
 
 // GetCommitChecksum resolves a git reference to its commit SHA
 // Uses git ls-remote to fetch the commit without cloning the repository
+// Delegates to BuildKit's gitutil for authentication, SSH, and proxy support
 func (c *Client) GetCommitChecksum(ctx context.Context, rawURL string) (string, error) {
 	gitRef, err := ParseGitURL(rawURL)
 	if err != nil {
@@ -80,26 +81,18 @@ func (c *Client) GetCommitChecksum(ctx context.Context, rawURL string) (string, 
 		defer cancel()
 	}
 
-	// Use git ls-remote to get the commit SHA
-	// This works for branches and tags without cloning
+	// Use BuildKit's GitCLI which handles:
+	// - SSH authentication and known_hosts
+	// - HTTP proxy environment variables
+	// - Auth tokens and headers
+	// - Non-interactive mode (GIT_TERMINAL_PROMPT=0)
+	// - Consistent output formatting
+	git := gitutil.NewGitCLI()
+
 	// Request both the ref and its dereferenced form (for annotated tags)
-	cmd := exec.CommandContext(ctx, "git", "ls-remote", gitRef.Remote, gitRef.Ref, gitRef.Ref+"^{}")
-
-	// Set environment to prevent interactive prompts and ensure consistent behavior
-	// This matches BuildKit's approach in util/gitutil/git_cli.go
-	cmd.Env = []string{
-		"PATH=" + os.Getenv("PATH"),
-		"GIT_TERMINAL_PROMPT=0", // Prevent git from prompting for credentials
-		"GIT_CONFIG_NOSYSTEM=1", // Disable reading from system gitconfig
-		"HOME=/dev/null",        // Disable reading from user gitconfig
-		"LC_ALL=C",              // Ensure consistent output format
-	}
-
-	output, err := cmd.Output()
+	// BuildKit's approach: source/git/source.go:264
+	output, err := git.Run(ctx, "ls-remote", gitRef.Remote, gitRef.Ref, gitRef.Ref+"^{}")
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			return "", fmt.Errorf("git ls-remote failed: %s: %w", string(exitErr.Stderr), err)
-		}
 		return "", fmt.Errorf("git ls-remote failed: %w", err)
 	}
 
