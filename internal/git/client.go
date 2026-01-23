@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // Client handles git operations
@@ -64,6 +65,13 @@ func (c *Client) GetCommitChecksum(ctx context.Context, rawURL string) (string, 
 	gitRef, err := ParseGitURL(rawURL)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse git URL: %w", err)
+	}
+
+	// Apply default timeout if context has no deadline
+	if _, hasDeadline := ctx.Deadline(); !hasDeadline {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
 	}
 
 	// Use git ls-remote to get the commit SHA
