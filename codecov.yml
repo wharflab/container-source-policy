@@ -1,6 +1,16 @@
 # Codecov configuration
 # https://docs.codecov.com/docs/codecovyml-reference
 
+coverage:
+  status:
+    project:
+      default:
+        target: 42%
+        threshold: 2%
+    patch:
+      default:
+        target: 80%
+
 ignore:
   - "internal/testutil/**"
   - "internal/integration/testdata/**"
