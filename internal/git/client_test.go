@@ -116,9 +116,4 @@ func TestGetCommitChecksum_Integration(t *testing.T) {
 	if checksum != want {
 		t.Errorf("GetCommitChecksum() = %v, want %v", checksum, want)
 	}
-
-	// Verify the SHA has correct length
-	if len(checksum) != 40 {
-		t.Errorf("GetCommitChecksum() returned SHA with length %d, want 40", len(checksum))
-	}
 }
