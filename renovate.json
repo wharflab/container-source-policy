@@ -28,6 +28,12 @@
     {
       "matchManagers": ["github-actions"],
       "pinDigests": false
+    },
+    {
+      "matchManagers": ["pep621"],
+      "matchFileNames": ["packaging/pypi/pyproject.toml"],
+      "matchDepNames": ["python"],
+      "enabled": false
     }
   ]
 }
