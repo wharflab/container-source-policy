@@ -44,7 +44,7 @@ type GitSourceRef struct {
 
 // ParseResult contains all extracted references from a Dockerfile
 type ParseResult struct {
-	// Images contains all container image references (FROM instructions)
+	// Images contains all container image references (FROM and COPY --from instructions)
 	Images []ImageRef
 	// HTTPSources contains all HTTP/HTTPS source references (ADD instructions without checksum)
 	HTTPSources []HTTPSourceRef
@@ -128,12 +128,17 @@ func ParseAll(ctx context.Context, r io.Reader) (*ParseResult, error) {
 			stageNames[strings.ToLower(stage.Name)] = true
 		}
 
-		// Extract HTTP and Git sources from ADD commands in this stage
+		// Extract image references and sources from commands in this stage
 		for _, cmd := range stage.Commands {
-			if addCmd, ok := cmd.(*instructions.AddCommand); ok {
-				httpRefs, gitRefs := extractAddSources(addCmd)
+			switch c := cmd.(type) {
+			case *instructions.AddCommand:
+				httpRefs, gitRefs := extractAddSources(c)
 				parseResult.HTTPSources = append(parseResult.HTTPSources, httpRefs...)
 				parseResult.GitSources = append(parseResult.GitSources, gitRefs...)
+			case *instructions.CopyCommand:
+				if ref := extractCopyFromImage(c, stageNames); ref != nil {
+					parseResult.Images = append(parseResult.Images, *ref)
+				}
 			}
 		}
 	}
@@ -141,48 +146,75 @@ func ParseAll(ctx context.Context, r io.Reader) (*ParseResult, error) {
 	return parseResult, nil
 }
 
-// extractImageRef extracts an image reference from a stage's FROM instruction
-func extractImageRef(stage instructions.Stage, stageNames map[string]bool) *ImageRef {
-	baseName := stage.BaseName
-
+// parseImageReference validates and parses an image reference string.
+// Returns nil if the reference should be skipped (scratch, stage reference, variable, already pinned, or invalid).
+func parseImageReference(imageName string, line int, stageNames map[string]bool) *ImageRef {
 	// Skip scratch base image
-	if strings.EqualFold(baseName, "scratch") {
+	if strings.EqualFold(imageName, "scratch") {
+		return nil
+	}
+
+	// Skip numeric stage indices (COPY --from=0, COPY --from=1, etc.)
+	if isNumeric(imageName) {
 		return nil
 	}
 
 	// Skip references to previous build stages (multi-stage builds)
-	if stageNames[strings.ToLower(baseName)] {
+	if stageNames[strings.ToLower(imageName)] {
 		return nil
 	}
 
 	// Skip references containing unexpanded ARG/ENV variables
-	if containsVariable(baseName) {
+	if containsVariable(imageName) {
 		return nil
 	}
 
 	// Skip images already pinned by digest (e.g., name@sha256:...)
-	if strings.Contains(baseName, "@sha256:") {
+	if strings.Contains(imageName, "@sha256:") {
 		return nil
 	}
 
 	// Parse the image reference using containers/image library
-	named, err := reference.ParseNormalizedNamed(baseName)
+	named, err := reference.ParseNormalizedNamed(imageName)
 	if err != nil {
 		// Return nil instead of error - invalid refs are skipped
 		return nil
 	}
 
+	return &ImageRef{
+		Original: imageName,
+		Ref:      named,
+		Line:     line,
+	}
+}
+
+// extractImageRef extracts an image reference from a stage's FROM instruction
+func extractImageRef(stage instructions.Stage, stageNames map[string]bool) *ImageRef {
 	line := 0
 	if len(stage.Location) > 0 {
 		line = stage.Location[0].Start.Line
 	}
 
-	return &ImageRef{
-		Original:  baseName,
-		Ref:       named,
-		Line:      line,
-		StageName: stage.Name,
+	ref := parseImageReference(stage.BaseName, line, stageNames)
+	if ref != nil {
+		ref.StageName = stage.Name
 	}
+	return ref
+}
+
+// extractCopyFromImage extracts an image reference from a COPY --from instruction
+func extractCopyFromImage(copyCmd *instructions.CopyCommand, stageNames map[string]bool) *ImageRef {
+	// No --from flag or empty value
+	if copyCmd.From == "" {
+		return nil
+	}
+
+	line := 0
+	if locs := copyCmd.Location(); len(locs) > 0 {
+		line = locs[0].Start.Line
+	}
+
+	return parseImageReference(copyCmd.From, line, stageNames)
 }
 
 // extractAddSources extracts HTTP/HTTPS and Git URLs from an ADD command
@@ -283,4 +315,17 @@ func isHTTPURL(s string) bool {
 	}
 	scheme := strings.ToLower(u.Scheme)
 	return scheme == "http" || scheme == "https"
+}
+
+// isNumeric checks if a string is a non-negative integer (for stage indices like "0", "1", etc.)
+func isNumeric(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
 }

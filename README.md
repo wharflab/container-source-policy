@@ -87,13 +87,14 @@ container-source-policy completion zsh
 
 ## What gets pinned
 
-### Container images (`FROM`)
+### Container images (`FROM` and `COPY --from`)
 
-- Looks at `FROM …` instructions across all provided Dockerfiles.
+- Looks at `FROM …` and `COPY --from=<image>` instructions across all provided Dockerfiles.
 - Skips:
   - `FROM scratch`
-  - `FROM <stage>` references to a previous named build stage
-  - `FROM ${VAR}` / `FROM $VAR` (unexpanded ARG/ENV variables)
+  - `FROM <stage>` / `COPY --from=<stage>` references to a previous named build stage
+  - `COPY --from=0` numeric stage indices
+  - `FROM ${VAR}` / `COPY --from=${VAR}` (unexpanded ARG/ENV variables)
   - images already written as `name@sha256:…`
 - Resolves the image manifest digest from the registry and emits BuildKit `CONVERT` rules of the form:
   - `docker-image://<as-written-in-Dockerfile>` → `docker-image://<normalized>@sha256:…`

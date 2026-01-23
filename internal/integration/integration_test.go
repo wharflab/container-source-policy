@@ -49,6 +49,7 @@ func TestMain(m *testing.M) {
 		{"library/alpine", "3.18", 1},
 		{"library/golang", "1.21", 2},
 		{"actions/actions-runner", "latest", 3},
+		{"library/busybox", "1.36", 4},
 	}
 
 	for _, img := range images {
@@ -85,6 +86,7 @@ func TestPin(t *testing.T) {
 		{"multistage", "multistage", []string{"library/golang/manifests/1.21", "library/alpine/manifests/3.18"}, false},
 		{"ghcr", "ghcr", []string{"actions/actions-runner/manifests/latest"}, false},
 		{"scratch", "scratch", []string{"library/golang/manifests/1.21"}, false},
+		{"copy-from", "copy-from", []string{"library/alpine/manifests/3.18", "library/busybox/manifests/1.36"}, false},
 		{"http-add", "http-add", []string{"library/alpine/manifests/3.18"}, true}, // hits real GitHub URL
 		{"git-add", "git-add", []string{"library/alpine/manifests/3.18"}, true},   // hits real GitHub git repo
 	}

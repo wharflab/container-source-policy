@@ -428,6 +428,153 @@ func TestParseAll_GitSources(t *testing.T) {
 	}
 }
 
+func TestParseAll_CopyFrom(t *testing.T) {
+	tests := []struct {
+		name           string
+		dockerfile     string
+		wantImageCount int
+		wantImages     []struct {
+			original string
+			domain   string
+			path     string
+			tag      string
+		}
+	}{
+		{
+			name:           "COPY --from with external image",
+			dockerfile:     "FROM alpine:3.18\nCOPY --from=busybox:1.36 /bin/busybox /bin/",
+			wantImageCount: 2,
+			wantImages: []struct {
+				original string
+				domain   string
+				path     string
+				tag      string
+			}{
+				{original: "alpine:3.18", domain: "docker.io", path: "library/alpine", tag: "3.18"},
+				{original: "busybox:1.36", domain: "docker.io", path: "library/busybox", tag: "1.36"},
+			},
+		},
+		{
+			name:           "COPY --from with ghcr.io image",
+			dockerfile:     "FROM alpine:3.18\nCOPY --from=ghcr.io/myorg/myimage:v1.0.0 /app/bin /usr/local/bin/",
+			wantImageCount: 2,
+			wantImages: []struct {
+				original string
+				domain   string
+				path     string
+				tag      string
+			}{
+				{original: "alpine:3.18", domain: "docker.io", path: "library/alpine", tag: "3.18"},
+				{original: "ghcr.io/myorg/myimage:v1.0.0", domain: "ghcr.io", path: "myorg/myimage", tag: "v1.0.0"},
+			},
+		},
+		{
+			name:           "COPY --from referencing build stage is skipped",
+			dockerfile:     "FROM golang:1.21 AS builder\nRUN go build -o /app\nFROM alpine:3.18\nCOPY --from=builder /app /app",
+			wantImageCount: 2,
+			wantImages: []struct {
+				original string
+				domain   string
+				path     string
+				tag      string
+			}{
+				{original: "golang:1.21", domain: "docker.io", path: "library/golang", tag: "1.21"},
+				{original: "alpine:3.18", domain: "docker.io", path: "library/alpine", tag: "3.18"},
+			},
+		},
+		{
+			name:           "COPY --from with stage index is skipped",
+			dockerfile:     "FROM golang:1.21\nRUN go build -o /app\nFROM alpine:3.18\nCOPY --from=0 /app /app",
+			wantImageCount: 2,
+		},
+		{
+			name:           "COPY without --from is ignored",
+			dockerfile:     "FROM alpine:3.18\nCOPY ./local /app/",
+			wantImageCount: 1,
+		},
+		{
+			name: "COPY --from with already digested image is skipped",
+			dockerfile: `FROM alpine:3.18
+COPY --from=busybox@sha256:abc123def456abc123def456abc123def456abc123def456abc123def456abcd /bin/busybox /bin/`,
+			wantImageCount: 1,
+		},
+		{
+			name:           "COPY --from with variable is skipped",
+			dockerfile:     "FROM alpine:3.18\nARG BUILD_IMAGE=golang:1.21\nCOPY --from=${BUILD_IMAGE} /app /app",
+			wantImageCount: 1,
+		},
+		{
+			name: "multiple COPY --from instructions",
+			dockerfile: `FROM alpine:3.18
+COPY --from=busybox:1.36 /bin/busybox /bin/
+COPY --from=nginx:1.25 /etc/nginx/nginx.conf /etc/nginx/`,
+			wantImageCount: 3,
+			wantImages: []struct {
+				original string
+				domain   string
+				path     string
+				tag      string
+			}{
+				{original: "alpine:3.18", domain: "docker.io", path: "library/alpine", tag: "3.18"},
+				{original: "busybox:1.36", domain: "docker.io", path: "library/busybox", tag: "1.36"},
+				{original: "nginx:1.25", domain: "docker.io", path: "library/nginx", tag: "1.25"},
+			},
+		},
+		{
+			name: "COPY --from case insensitive stage reference",
+			dockerfile: `FROM golang:1.21 AS Builder
+RUN go build -o /app
+FROM alpine:3.18
+COPY --from=builder /app /app`,
+			wantImageCount: 2, // Builder stage reference should be skipped (case insensitive)
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ParseAll(context.Background(), strings.NewReader(tt.dockerfile))
+			if err != nil {
+				t.Fatalf("ParseAll() error = %v", err)
+			}
+
+			if len(result.Images) != tt.wantImageCount {
+				got := make([]string, len(result.Images))
+				for i, img := range result.Images {
+					got[i] = img.Original
+				}
+				t.Fatalf("ParseAll() returned %d images %v, want %d", len(result.Images), got, tt.wantImageCount)
+			}
+
+			if tt.wantImages != nil {
+				for i, want := range tt.wantImages {
+					if i >= len(result.Images) {
+						t.Errorf("Missing image at index %d, want %q", i, want.original)
+						continue
+					}
+					got := result.Images[i]
+					if got.Original != want.original {
+						t.Errorf("Images[%d].Original = %q, want %q", i, got.Original, want.original)
+					}
+					if reference.Domain(got.Ref) != want.domain {
+						t.Errorf("Images[%d] Domain = %q, want %q", i, reference.Domain(got.Ref), want.domain)
+					}
+					if reference.Path(got.Ref) != want.path {
+						t.Errorf("Images[%d] Path = %q, want %q", i, reference.Path(got.Ref), want.path)
+					}
+					if want.tag != "" {
+						tagged, ok := got.Ref.(reference.Tagged)
+						if !ok {
+							t.Errorf("Images[%d] expected tagged reference, got untagged", i)
+						} else if tagged.Tag() != want.tag {
+							t.Errorf("Images[%d] Tag = %q, want %q", i, tagged.Tag(), want.tag)
+						}
+					}
+				}
+			}
+		})
+	}
+}
+
 func TestIsGitURL(t *testing.T) {
 	tests := []struct {
 		name string
