@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "action": "CONVERT",
+      "selector": {
+        "identifier": "docker-image://alpine:3.18",
+        "match_type": "EXACT"
+      },
+      "updates": {
+        "identifier": "docker-image://docker.io/library/alpine:3.18@sha256:dca69b6823d2cff137b073f278d243679fccbbe39b939dbff7747587013cc3b7"
+      }
+    },
+    {
+      "action": "CONVERT",
+      "selector": {
+        "identifier": "http://127.0.0.1:PORT/stable/file.txt",
+        "match_type": "EXACT"
+      },
+      "updates": {
+        "attrs": {
+          "http.checksum": "sha256:ce382ddb3d232ecb903c37fe6bd4779a18c6d664a15d7ddee0e5ca7ea9406120"
+        }
+      }
+    }
+  ]
+}

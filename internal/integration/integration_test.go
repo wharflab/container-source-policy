@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -15,6 +16,15 @@ import (
 	"github.com/tinovyatkin/container-source-policy/internal/policy"
 	"github.com/tinovyatkin/container-source-policy/internal/testutil"
 )
+
+// localhostPortRegex matches localhost URLs with dynamic ports (e.g., http://127.0.0.1:49677)
+var localhostPortRegex = regexp.MustCompile(`http://127\.0\.0\.1:\d+`)
+
+// normalizeTestOutput replaces dynamic localhost ports in test output with a placeholder
+// to enable stable snapshot testing with mock HTTP servers.
+func normalizeTestOutput(output []byte) string {
+	return localhostPortRegex.ReplaceAllString(string(output), "http://127.0.0.1:PORT")
+}
 
 var (
 	binaryPath   string
@@ -271,6 +281,9 @@ ADD ` + mockHTTP.URL() + `/stable/file.txt /app/stable.txt
 	if !foundStableRule {
 		t.Error("expected rule for stable HTTP file not found")
 	}
+
+	// Normalize output to replace dynamic localhost ports before snapshotting
+	snaps.WithConfig(snaps.Ext(".json")).MatchStandaloneSnapshot(t, normalizeTestOutput(output))
 }
 
 // TestPinHTTPSourcesWithExistingChecksum tests that ADD with --checksum is skipped
