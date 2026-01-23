@@ -194,7 +194,7 @@ func TestGetChecksumFromHEAD(t *testing.T) {
 					t.Errorf("expected HEAD request, got %s", r.Method)
 				}
 				// Verify the checksum mode header is always sent (ignored by non-S3)
-				if r.Header.Get("x-amz-checksum-mode") != "ENABLED" {
+				if r.Header.Get("X-Amz-Checksum-Mode") != "ENABLED" {
 					t.Error("expected x-amz-checksum-mode: ENABLED header")
 				}
 				for k, v := range tt.headers {
@@ -320,7 +320,7 @@ func TestGetChecksumFromGitHubRelease(t *testing.T) {
 							if req.Header.Get("Accept") != "application/vnd.github+json" {
 								t.Error("expected Accept: application/vnd.github+json header")
 							}
-							if req.Header.Get("X-GitHub-Api-Version") != "2022-11-28" {
+							if req.Header.Get("X-Github-Api-Version") != "2022-11-28" {
 								t.Error("expected X-GitHub-Api-Version: 2022-11-28 header")
 							}
 							return &http.Response{
@@ -369,9 +369,11 @@ func TestGetChecksumFromGitHubRelease_RealAPI(t *testing.T) {
 	// Using cli/cli v2.85.0 which has stable digests
 	client := NewClient()
 
-	testURL, _ := url.Parse("https://github.com/cli/cli/releases/download/v2.85.0/gh_2.85.0_checksums.txt")
+	testURL, err := url.Parse("https://github.com/cli/cli/releases/download/v2.85.0/gh_2.85.0_checksums.txt")
+	if err != nil {
+		t.Fatalf("failed to parse test URL: %v", err)
+	}
 	checksum, err := client.getChecksumFromGitHubRelease(context.Background(), testURL)
-
 	if err != nil {
 		t.Fatalf("getChecksumFromGitHubRelease() error = %v", err)
 	}
@@ -487,7 +489,12 @@ func TestGetChecksumWithHeaders_VaryHeader(t *testing.T) {
 
 			// Check headers count
 			if len(result.Headers) != tt.expectedHeadersCount {
-				t.Errorf("GetChecksumWithHeaders() headers count = %d, want %d (headers: %v)", len(result.Headers), tt.expectedHeadersCount, result.Headers)
+				t.Errorf(
+					"GetChecksumWithHeaders() headers count = %d, want %d (headers: %v)",
+					len(result.Headers),
+					tt.expectedHeadersCount,
+					result.Headers,
+				)
 			}
 
 			// Check user-agent header if expected

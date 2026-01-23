@@ -5,6 +5,7 @@ package policy
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/moby/buildkit/solver/pb"
@@ -128,7 +129,7 @@ func AddGitChecksumRule(p *Policy, gitURL, checksum string) {
 // that BuildKit performs when loading a policy file via json.Unmarshal.
 func Validate(p *Policy) error {
 	if p == nil {
-		return fmt.Errorf("policy is nil")
+		return errors.New("policy is nil")
 	}
 	data, err := json.Marshal(p)
 	if err != nil {
@@ -144,15 +145,15 @@ func Validate(p *Policy) error {
 // structural correctness.
 func ValidateWithEvaluate(ctx context.Context, p *Policy) error {
 	if p == nil {
-		return fmt.Errorf("policy is nil")
+		return errors.New("policy is nil")
 	}
 	engine := sourcepolicy.NewEngine([]*spb.Policy{p})
 	for i, rule := range p.Rules {
-		if rule == nil || rule.Selector == nil {
+		if rule == nil || rule.GetSelector() == nil {
 			return fmt.Errorf("rule %d has nil selector", i)
 		}
 		op := &pb.SourceOp{
-			Identifier: rule.Selector.Identifier,
+			Identifier: rule.GetSelector().GetIdentifier(),
 		}
 		if _, err := engine.Evaluate(ctx, op); err != nil {
 			return err

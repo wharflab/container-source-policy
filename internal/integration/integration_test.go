@@ -111,14 +111,23 @@ func TestPin(t *testing.T) {
 			// Verify mock registry was hit for expected images
 			for _, img := range tc.expectedImages {
 				if !mockRegistry.HasRequest(img) {
-					t.Errorf("expected mock registry to be hit for %s, but it wasn't.\nRequests: %v", img, mockRegistry.Requests())
+					t.Errorf(
+						"expected mock registry to be hit for %s, but it wasn't.\nRequests: %v",
+						img,
+						mockRegistry.Requests(),
+					)
 				}
 			}
 
 			// Verify no unexpected manifest requests were made
 			manifestRequests := mockRegistry.RequestCount("/manifests/")
 			if manifestRequests != len(tc.expectedImages) {
-				t.Errorf("expected %d manifest requests, got %d.\nRequests: %v", len(tc.expectedImages), manifestRequests, mockRegistry.Requests())
+				t.Errorf(
+					"expected %d manifest requests, got %d.\nRequests: %v",
+					len(tc.expectedImages),
+					manifestRequests,
+					mockRegistry.Requests(),
+				)
 			}
 
 			// Validate the policy using BuildKit's sourcepolicy types
@@ -149,17 +158,13 @@ func TestPinHTTPSourcesWithExistingChecksum(t *testing.T) {
 	mockHTTP.AddFile("/test/file.txt", "test content")
 
 	// Create a temporary Dockerfile that uses --checksum flag (should be skipped)
-	tmpDir, err := os.MkdirTemp("", "http-test-checksum")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = os.RemoveAll(tmpDir) }()
+	tmpDir := t.TempDir()
 
 	dockerfilePath := filepath.Join(tmpDir, "Dockerfile")
 	dockerfileContent := `FROM alpine:3.18
 ADD --checksum=sha256:0000000000000000000000000000000000000000000000000000000000000000 ` + mockHTTP.URL() + `/test/file.txt /app/file.txt
 `
-	if err := os.WriteFile(dockerfilePath, []byte(dockerfileContent), 0644); err != nil {
+	if err := os.WriteFile(dockerfilePath, []byte(dockerfileContent), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -177,7 +182,10 @@ ADD --checksum=sha256:0000000000000000000000000000000000000000000000000000000000
 
 	// Verify mock HTTP server was NOT hit (because --checksum is already specified)
 	if mockHTTP.HasRequest("/test/file.txt") {
-		t.Errorf("expected mock HTTP server NOT to be hit (ADD has --checksum), but it was.\nRequests: %v", mockHTTP.Requests())
+		t.Errorf(
+			"expected mock HTTP server NOT to be hit (ADD has --checksum), but it was.\nRequests: %v",
+			mockHTTP.Requests(),
+		)
 	}
 
 	// Parse the output - should only have the alpine:3.18 rule, no HTTP rule

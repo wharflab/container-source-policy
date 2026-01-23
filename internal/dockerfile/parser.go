@@ -230,7 +230,7 @@ func containsVariable(s string) bool {
 		return true
 	}
 	// Check for $VAR pattern (variable without braces)
-	for i := 0; i < len(s); i++ {
+	for i := range len(s) {
 		if s[i] == '$' && i+1 < len(s) {
 			next := s[i+1]
 			// $VAR pattern: $ followed by letter or underscore

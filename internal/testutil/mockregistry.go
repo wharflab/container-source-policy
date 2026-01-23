@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -100,7 +101,7 @@ func (mr *MockRegistry) AddImage(repo, tag string, imageID int64) (string, error
 	// The config includes the imageID to make each image unique but reproducible
 	config := v1.Config{
 		Labels: map[string]string{
-			"mock.image.id": fmt.Sprintf("%d", imageID),
+			"mock.image.id": strconv.FormatInt(imageID, 10),
 			"mock.repo":     repo,
 			"mock.tag":      tag,
 		},

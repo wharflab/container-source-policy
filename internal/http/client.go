@@ -108,7 +108,7 @@ func (c *Client) GetChecksumWithHeaders(ctx context.Context, rawURL string) (*Ch
 // getChecksumFromHEADWithHeaders makes a HEAD request and tries to extract checksum from response headers.
 // It also extracts headers that should be included in the source policy based on the Vary header.
 func (c *Client) getChecksumFromHEADWithHeaders(ctx context.Context, rawURL string) (*ChecksumResult, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodHead, rawURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, rawURL, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func (c *Client) getChecksumFromHEADWithHeaders(ctx context.Context, rawURL stri
 	req.Header.Set("User-Agent", version.UserAgent())
 
 	// Request S3 checksums if available (this header is ignored by non-S3 servers)
-	req.Header.Set("x-amz-checksum-mode", "ENABLED")
+	req.Header.Set("X-Amz-Checksum-Mode", "ENABLED")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -151,7 +151,7 @@ func (c *Client) getChecksumFromHEADWithHeaders(ctx context.Context, rawURL stri
 		if len(etag) == 64 && isHexString(etag) {
 			checksum = "sha256:" + etag
 		} else {
-			return nil, fmt.Errorf("no usable checksum found in headers")
+			return nil, errors.New("no usable checksum found in headers")
 		}
 	}
 
@@ -181,7 +181,7 @@ func (c *Client) getChecksumFromHEAD(ctx context.Context, rawURL string) (string
 // If unavailable, caller should fall back to downloading and computing SHA-256.
 func (c *Client) extractS3Checksum(resp *http.Response) (string, error) {
 	// Check for explicit S3 SHA-256 checksum (the only algorithm BuildKit supports)
-	if sha256Checksum := resp.Header.Get("x-amz-checksum-sha256"); sha256Checksum != "" {
+	if sha256Checksum := resp.Header.Get("X-Amz-Checksum-Sha256"); sha256Checksum != "" {
 		// S3 returns base64-encoded checksum, convert to hex
 		decoded, err := decodeBase64ToHex(sha256Checksum)
 		if err == nil {
@@ -190,7 +190,7 @@ func (c *Client) extractS3Checksum(resp *http.Response) (string, error) {
 	}
 
 	// No SHA-256 available from headers - caller will fall back to computing it
-	return "", fmt.Errorf("no SHA-256 checksum found in S3 headers")
+	return "", errors.New("no SHA-256 checksum found in S3 headers")
 }
 
 // GitHubReleaseAsset represents a release asset from the GitHub API
@@ -210,13 +210,11 @@ func (c *Client) getChecksumFromGitHubRelease(ctx context.Context, parsedURL *ur
 	// e.g., /cli/cli/releases/download/v2.50.0/gh_2.50.0_linux_amd64.tar.gz
 	pathParts := strings.Split(strings.TrimPrefix(parsedURL.Path, "/"), "/")
 	if len(pathParts) < 6 {
-		return "", fmt.Errorf("invalid GitHub release URL format")
+		return "", errors.New("invalid GitHub release URL format")
 	}
 
 	owner := pathParts[0]
 	repo := pathParts[1]
-	// pathParts[2] = "releases"
-	// pathParts[3] = "download"
 	tag := pathParts[4]
 	rawAssetName := strings.Join(pathParts[5:], "/")
 
@@ -229,13 +227,13 @@ func (c *Client) getChecksumFromGitHubRelease(ctx context.Context, parsedURL *ur
 	// Query the GitHub API for the release
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/tags/%s", owner, repo, tag)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, http.NoBody)
 	if err != nil {
 		return "", err
 	}
 	req.Header.Set("User-Agent", version.UserAgent())
 	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+	req.Header.Set("X-Github-Api-Version", "2022-11-28")
 
 	// Support GITHUB_TOKEN for authenticated requests (5,000 req/hr vs 60 req/hr)
 	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
@@ -279,7 +277,7 @@ func (c *Client) getChecksumFromGitHubRelease(ctx context.Context, parsedURL *ur
 
 // computeChecksumWithHeaders downloads the content, computes SHA256, and extracts relevant headers
 func (c *Client) computeChecksumWithHeaders(ctx context.Context, rawURL string) (*ChecksumResult, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -359,7 +357,7 @@ func decodeBase64ToHex(b64 string) (string, error) {
 //
 // Returns a map of lowercase header names to their values, suitable for inclusion in
 // BuildKit source policy attributes with the "http.header." prefix.
-func extractVaryHeaders(reqHeaders http.Header, respHeaders http.Header) map[string]string {
+func extractVaryHeaders(reqHeaders, respHeaders http.Header) map[string]string {
 	varyHeader := respHeaders.Get("Vary")
 	if varyHeader == "" {
 		// No Vary header means response doesn't vary by request headers
@@ -376,7 +374,7 @@ func extractVaryHeaders(reqHeaders http.Header, respHeaders http.Header) map[str
 	headers := make(map[string]string)
 
 	// Parse comma-separated header names from Vary
-	for _, headerName := range strings.Split(varyHeader, ",") {
+	for headerName := range strings.SplitSeq(varyHeader, ",") {
 		headerName = strings.TrimSpace(headerName)
 		if headerName == "" {
 			continue

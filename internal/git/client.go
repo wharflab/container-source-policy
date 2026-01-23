@@ -4,6 +4,7 @@ package git
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -122,13 +123,13 @@ func (c *Client) GetCommitChecksum(ctx context.Context, rawURL string) (string, 
 		}
 	}
 	if commitSHA == "" {
-		return "", fmt.Errorf("unexpected git ls-remote output format")
+		return "", errors.New("unexpected git ls-remote output format")
 	}
 	if len(commitSHA) != 40 {
 		return "", fmt.Errorf("invalid commit SHA length: %d", len(commitSHA))
 	}
 	if _, err := hex.DecodeString(commitSHA); err != nil {
-		return "", fmt.Errorf("invalid commit SHA format: not hexadecimal")
+		return "", errors.New("invalid commit SHA format: not hexadecimal")
 	}
 
 	return commitSHA, nil
