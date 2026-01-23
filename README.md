@@ -104,6 +104,7 @@ container-source-policy completion zsh
 - Skips:
   - `ADD --checksum=… <url>` (already pinned)
   - URLs containing unexpanded variables (`${VAR}`, `$VAR`)
+  - Git URLs (handled separately, see below)
 - Fetches the checksum and emits `CONVERT` rules with `http.checksum` attribute.
 
 **Optimized checksum fetching** — avoids downloading large files when possible:
@@ -111,6 +112,20 @@ container-source-policy completion zsh
 - GitHub releases: uses the API `digest` field (set `GITHUB_TOKEN` for higher rate limits)
 - S3: uses `x-amz-checksum-sha256` response header (by sending `x-amz-checksum-mode: ENABLED`)
 - Fallback: downloads and computes SHA256
+
+### Git sources (`ADD`)
+
+- Looks at `ADD <git-url> …` instructions with Git repository URLs.
+- Supports various Git URL formats:
+  - `https://github.com/owner/repo.git#ref`
+  - `git://host/path#ref`
+  - `git@github.com:owner/repo#ref`
+  - `ssh://git@host/path#ref`
+- Skips URLs containing unexpanded variables (`${VAR}`, `$VAR`)
+- Uses `git ls-remote` to resolve the ref (branch, tag, or commit) to a commit SHA
+- Emits `CONVERT` rules with `git.checksum` attribute (full 40-character commit SHA)
+
+Example: `ADD https://github.com/cli/cli.git#v2.40.0 /dest` pins to commit `54d56cab...`
 
 ## Development
 
@@ -132,6 +147,7 @@ UPDATE_SNAPS=true go test ./internal/integration/...
 - `internal/dockerfile`: Dockerfile parsing (`FROM` and `ADD` extraction)
 - `internal/registry`: registry client (image digest resolution)
 - `internal/http`: HTTP client (URL checksum fetching with optimizations)
+- `internal/git`: Git client (commit SHA resolution via git ls-remote)
 - `internal/policy`: BuildKit source policy types and JSON output
 - `internal/pin`: orchestration logic for `pin`
 - `internal/integration`: end-to-end tests with mock registry/HTTP server and snapshots

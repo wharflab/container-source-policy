@@ -80,6 +80,25 @@ func AddHTTPChecksumRule(p *Policy, url, checksum string) {
 	p.Rules = append(p.Rules, rule)
 }
 
+// AddGitChecksumRule adds a rule that pins a Git source to a specific commit checksum
+// The gitURL should be the original URL as it appears in the Dockerfile (e.g., https://github.com/owner/repo.git#ref)
+// The checksum should be the full 40-character commit SHA
+func AddGitChecksumRule(p *Policy, gitURL, checksum string) {
+	rule := &Rule{
+		Action: PolicyActionConvert,
+		Selector: &Selector{
+			Identifier: gitURL,
+			MatchType:  MatchTypeExact,
+		},
+		Updates: &Update{
+			Attrs: map[string]string{
+				"git.checksum": checksum,
+			},
+		},
+	}
+	p.Rules = append(p.Rules, rule)
+}
+
 // Validate checks that the policy is valid by performing a JSON round-trip
 // through the BuildKit sourcepolicy/pb types. This is the same validation
 // that BuildKit performs when loading a policy file via json.Unmarshal.

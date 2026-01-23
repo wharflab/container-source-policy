@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 
 	"github.com/containers/image/v5/docker/reference"
 	"github.com/opencontainers/go-digest"
 
 	"github.com/tinovyatkin/container-source-policy/internal/dockerfile"
+	"github.com/tinovyatkin/container-source-policy/internal/git"
 	httpclient "github.com/tinovyatkin/container-source-policy/internal/http"
 	"github.com/tinovyatkin/container-source-policy/internal/policy"
 	"github.com/tinovyatkin/container-source-policy/internal/registry"
@@ -24,10 +26,12 @@ type Options struct {
 func GeneratePolicy(ctx context.Context, opts Options) (*policy.Policy, error) {
 	registryClient := registry.NewClient()
 	httpClient := httpclient.NewClient()
+	gitClient := git.NewClient()
 	pol := policy.NewPolicy()
 
 	seenImages := make(map[string]bool)
 	seenHTTP := make(map[string]bool)
+	seenGit := make(map[string]bool)
 
 	for _, dockerfilePath := range opts.Dockerfiles {
 		parseResult, err := dockerfile.ParseAllFile(ctx, dockerfilePath)
@@ -80,11 +84,34 @@ func GeneratePolicy(ctx context.Context, opts Options) (*policy.Policy, error) {
 			// Get the checksum for the HTTP resource
 			checksum, err := httpClient.GetChecksum(ctx, httpRef.URL)
 			if err != nil {
+				// Skip resources that require authentication instead of failing
+				if httpclient.IsAuthError(err) {
+					log.Printf("Warning: Skipping %s (authentication required)", httpRef.URL)
+					continue
+				}
 				return nil, fmt.Errorf("failed to get checksum for %s: %w", httpRef.URL, err)
 			}
 
 			// Add the HTTP checksum rule
 			policy.AddHTTPChecksumRule(pol, httpRef.URL, checksum)
+		}
+
+		// Process Git sources (ADD instructions with git URLs)
+		for _, gitRef := range parseResult.GitSources {
+			// Skip if already processed
+			if seenGit[gitRef.URL] {
+				continue
+			}
+			seenGit[gitRef.URL] = true
+
+			// Get the commit checksum for the Git repository
+			checksum, err := gitClient.GetCommitChecksum(ctx, gitRef.URL)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get commit checksum for %s: %w", gitRef.URL, err)
+			}
+
+			// Add the Git checksum rule
+			policy.AddGitChecksumRule(pol, gitRef.URL, checksum)
 		}
 	}
 

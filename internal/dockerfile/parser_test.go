@@ -303,3 +303,156 @@ ADD https://raw.githubusercontent.com/moby/moby/master/README.md /app/`,
 		})
 	}
 }
+
+func TestParseAll_GitSources(t *testing.T) {
+	tests := []struct {
+		name           string
+		dockerfile     string
+		wantGitCount   int
+		wantImageCount int
+		wantGitURLs    []string
+	}{
+		{
+			name:           "ADD with https git URL",
+			dockerfile:     "FROM alpine:3.18\nADD https://github.com/owner/repo.git#v1.0.0 /app/",
+			wantGitCount:   1,
+			wantImageCount: 1,
+			wantGitURLs:    []string{"https://github.com/owner/repo.git#v1.0.0"},
+		},
+		{
+			name:           "ADD with https git URL and subdir",
+			dockerfile:     "FROM alpine:3.18\nADD https://github.com/owner/repo.git#main:subdirectory /app/",
+			wantGitCount:   1,
+			wantImageCount: 1,
+			wantGitURLs:    []string{"https://github.com/owner/repo.git#main:subdirectory"},
+		},
+		{
+			name:           "ADD with git protocol",
+			dockerfile:     "FROM alpine:3.18\nADD git://github.com/owner/repo#branch /app/",
+			wantGitCount:   1,
+			wantImageCount: 1,
+			wantGitURLs:    []string{"git://github.com/owner/repo#branch"},
+		},
+		{
+			name:           "ADD with git@ SSH format",
+			dockerfile:     "FROM alpine:3.18\nADD git@github.com:owner/repo.git#v2.0.0 /app/",
+			wantGitCount:   1,
+			wantImageCount: 1,
+			wantGitURLs:    []string{"git@github.com:owner/repo.git#v2.0.0"},
+		},
+		{
+			name:           "ADD with ssh:// protocol",
+			dockerfile:     "FROM alpine:3.18\nADD ssh://git@github.com/owner/repo.git#tag /app/",
+			wantGitCount:   1,
+			wantImageCount: 1,
+			wantGitURLs:    []string{"ssh://git@github.com/owner/repo.git#tag"},
+		},
+		{
+			name:           "ADD with git URL without fragment",
+			dockerfile:     "FROM alpine:3.18\nADD https://github.com/owner/repo.git /app/",
+			wantGitCount:   1,
+			wantImageCount: 1,
+			wantGitURLs:    []string{"https://github.com/owner/repo.git"},
+		},
+		{
+			name:           "ADD with --checksum is skipped (git)",
+			dockerfile:     "FROM alpine:3.18\nADD --checksum=sha256:abc123 https://github.com/owner/repo.git#main /app/",
+			wantGitCount:   0,
+			wantImageCount: 1,
+			wantGitURLs:    nil,
+		},
+		{
+			name:           "ADD with variable in git URL is skipped",
+			dockerfile:     "FROM alpine:3.18\nARG TAG=v1.0.0\nADD https://github.com/owner/repo.git#${TAG} /app/",
+			wantGitCount:   0,
+			wantImageCount: 1,
+			wantGitURLs:    nil,
+		},
+		{
+			name:           "multiple git URLs in one ADD",
+			dockerfile:     "FROM alpine:3.18\nADD https://github.com/a/b.git#main https://github.com/c/d.git#dev /app/",
+			wantGitCount:   2,
+			wantImageCount: 1,
+			wantGitURLs:    []string{"https://github.com/a/b.git#main", "https://github.com/c/d.git#dev"},
+		},
+		{
+			name:           "mixed git and HTTP URLs",
+			dockerfile:     "FROM alpine:3.18\nADD https://github.com/owner/repo.git#v1.0.0 /src/\nADD https://example.com/file.txt /data/",
+			wantGitCount:   1,
+			wantImageCount: 1,
+			wantGitURLs:    []string{"https://github.com/owner/repo.git#v1.0.0"},
+		},
+		{
+			name:           "https without .git is treated as HTTP, not git",
+			dockerfile:     "FROM alpine:3.18\nADD https://example.com/path /app/",
+			wantGitCount:   0,
+			wantImageCount: 1,
+			wantGitURLs:    nil,
+		},
+		{
+			name:           "real-world cli/cli repository",
+			dockerfile:     "FROM alpine:3.18\nADD https://github.com/cli/cli.git#v2.40.0 /cli-src",
+			wantGitCount:   1,
+			wantImageCount: 1,
+			wantGitURLs:    []string{"https://github.com/cli/cli.git#v2.40.0"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ParseAll(context.Background(), strings.NewReader(tt.dockerfile))
+			if err != nil {
+				t.Fatalf("ParseAll() error = %v", err)
+			}
+
+			if len(result.GitSources) != tt.wantGitCount {
+				t.Errorf("ParseAll() returned %d Git sources, want %d", len(result.GitSources), tt.wantGitCount)
+			}
+
+			if len(result.Images) != tt.wantImageCount {
+				t.Errorf("ParseAll() returned %d images, want %d", len(result.Images), tt.wantImageCount)
+			}
+
+			if tt.wantGitURLs != nil {
+				for i, wantURL := range tt.wantGitURLs {
+					if i >= len(result.GitSources) {
+						t.Errorf("Missing Git source at index %d, want URL %q", i, wantURL)
+						continue
+					}
+					if result.GitSources[i].URL != wantURL {
+						t.Errorf("GitSources[%d].URL = %q, want %q", i, result.GitSources[i].URL, wantURL)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestIsGitURL(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+		want bool
+	}{
+		{"https with .git suffix", "https://github.com/owner/repo.git", true},
+		{"https with .git and fragment", "https://github.com/owner/repo.git#main", true},
+		{"http with .git suffix", "http://example.com/repo.git", true},
+		{"git protocol", "git://github.com/owner/repo", true},
+		{"ssh protocol", "ssh://git@github.com/owner/repo.git", true},
+		{"git@ SSH format", "git@github.com:owner/repo.git", true},
+		{"https without .git", "https://example.com/file.txt", false},
+		{"http without .git", "http://example.com/path", false},
+		{"https with .git in middle", "https://example.com/repo.git/file.txt", false}, // .git must be at end
+		{"local path", "./local/path", false},
+		{"relative path", "path/to/file", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isGitURL(tt.url)
+			if got != tt.want {
+				t.Errorf("isGitURL(%q) = %v, want %v", tt.url, got, tt.want)
+			}
+		})
+	}
+}

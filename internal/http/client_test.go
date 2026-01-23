@@ -272,7 +272,7 @@ func TestGetChecksumFromGitHubRelease(t *testing.T) {
 			errContains:  "invalid GitHub release URL format",
 		},
 		{
-			name:         "API error response",
+			name:         "API 404 error (genuine not found)",
 			path:         "/cli/cli/releases/download/v2.50.0/gh.tar.gz",
 			responseCode: http.StatusNotFound,
 			responseBody: `{"message":"Not Found"}`,

@@ -57,6 +57,10 @@ go run . pin --stdout Dockerfile
 │   │   └── parser_test.go
 │   ├── registry/                     # Registry client (uses containers/image)
 │   │   └── client.go
+│   ├── http/                         # HTTP client (URL checksum fetching)
+│   │   └── client.go
+│   ├── git/                          # Git client (commit SHA resolution)
+│   │   └── client.go
 │   ├── policy/                       # BuildKit source policy helpers (wraps sourcepolicy/pb)
 │   │   └── types.go
 │   ├── pin/                          # Pin operation logic
@@ -66,7 +70,8 @@ go run . pin --stdout Dockerfile
 │   │   ├── __snapshots__/
 │   │   └── testdata/                 # Test fixtures (each in own directory)
 │   ├── testutil/                     # Test utilities
-│   │   └── mockregistry.go           # Mock container registry server
+│   │   ├── mockregistry.go           # Mock container registry server
+│   │   └── mockhttp.go               # Mock HTTP server
 │   └── version/
 │       └── version.go
 ```

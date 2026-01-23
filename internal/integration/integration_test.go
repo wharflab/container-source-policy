@@ -86,6 +86,7 @@ func TestPin(t *testing.T) {
 		{"ghcr", "ghcr", []string{"actions/actions-runner/manifests/latest"}, false},
 		{"scratch", "scratch", []string{"library/golang/manifests/1.21"}, false},
 		{"http-add", "http-add", []string{"library/alpine/manifests/3.18"}, true}, // hits real GitHub URL
+		{"git-add", "git-add", []string{"library/alpine/manifests/3.18"}, true},   // hits real GitHub git repo
 	}
 
 	for _, tc := range testCases {
