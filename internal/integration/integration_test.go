@@ -50,6 +50,7 @@ func TestMain(m *testing.M) {
 		{"library/golang", "1.21", 2},
 		{"actions/actions-runner", "latest", 3},
 		{"library/busybox", "1.36", 4},
+		{"library/nginx", "1.25", 5},
 	}
 
 	for _, img := range images {
@@ -87,8 +88,24 @@ func TestPin(t *testing.T) {
 		{"ghcr", "ghcr", []string{"actions/actions-runner/manifests/latest"}, false},
 		{"scratch", "scratch", []string{"library/golang/manifests/1.21"}, false},
 		{"copy-from", "copy-from", []string{"library/alpine/manifests/3.18", "library/busybox/manifests/1.36"}, false},
-		{"http-add", "http-add", []string{"library/alpine/manifests/3.18"}, true}, // hits real GitHub URL
-		{"git-add", "git-add", []string{"library/alpine/manifests/3.18"}, true},   // hits real GitHub git repo
+		{
+			"onbuild",
+			"onbuild",
+			[]string{"library/alpine/manifests/3.18", "library/nginx/manifests/1.25"},
+			true,
+		}, // hits real GitHub URL via ONBUILD ADD
+		{
+			"http-add",
+			"http-add",
+			[]string{"library/alpine/manifests/3.18"},
+			true,
+		}, // hits real GitHub URL
+		{
+			"git-add",
+			"git-add",
+			[]string{"library/alpine/manifests/3.18"},
+			true,
+		}, // hits real GitHub git repo
 	}
 
 	for _, tc := range testCases {

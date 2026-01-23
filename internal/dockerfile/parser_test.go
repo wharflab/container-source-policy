@@ -603,3 +603,194 @@ func TestIsGitURL(t *testing.T) {
 		})
 	}
 }
+
+// verifyLineNumber checks if a reference has the expected line number in the parse result
+func verifyLineNumber(t *testing.T, result *ParseResult, ref string, wantLine int) {
+	t.Helper()
+	// Check images
+	for _, img := range result.Images {
+		if img.Original == ref {
+			if img.Line != wantLine {
+				t.Errorf("Image %q Line = %d, want %d", ref, img.Line, wantLine)
+			}
+			return
+		}
+	}
+	// Check HTTP sources
+	for _, http := range result.HTTPSources {
+		if http.URL == ref {
+			if http.Line != wantLine {
+				t.Errorf("HTTP %q Line = %d, want %d", ref, http.Line, wantLine)
+			}
+			return
+		}
+	}
+	// Check Git sources
+	for _, git := range result.GitSources {
+		if git.URL == ref {
+			if git.Line != wantLine {
+				t.Errorf("Git %q Line = %d, want %d", ref, git.Line, wantLine)
+			}
+			return
+		}
+	}
+	t.Errorf("Reference %q not found in results", ref)
+}
+
+func TestParseAll_Onbuild(t *testing.T) {
+	tests := []struct {
+		name           string
+		dockerfile     string
+		wantImageCount int
+		wantHTTPCount  int
+		wantGitCount   int
+		wantImages     []string
+		wantHTTPURLs   []string
+		wantGitURLs    []string
+		wantLines      map[string]int // map from ref to expected line number
+	}{
+		{
+			name: "ONBUILD COPY --from with external image",
+			dockerfile: `FROM alpine:3.18
+ONBUILD COPY --from=nginx:1.25 /etc/nginx/nginx.conf /etc/nginx/`,
+			wantImageCount: 2,
+			wantImages:     []string{"alpine:3.18", "nginx:1.25"},
+			wantLines:      map[string]int{"nginx:1.25": 2},
+		},
+		{
+			name: "ONBUILD ADD with HTTP URL",
+			dockerfile: `FROM alpine:3.18
+ONBUILD ADD https://example.com/file.txt /app/`,
+			wantImageCount: 1,
+			wantHTTPCount:  1,
+			wantHTTPURLs:   []string{"https://example.com/file.txt"},
+			wantLines:      map[string]int{"https://example.com/file.txt": 2},
+		},
+		{
+			name: "ONBUILD ADD with Git URL",
+			dockerfile: `FROM alpine:3.18
+ONBUILD ADD https://github.com/owner/repo.git#main /src/`,
+			wantImageCount: 1,
+			wantGitCount:   1,
+			wantGitURLs:    []string{"https://github.com/owner/repo.git#main"},
+			wantLines:      map[string]int{"https://github.com/owner/repo.git#main": 2},
+		},
+		{
+			name: "multiple ONBUILD instructions",
+			dockerfile: `FROM alpine:3.18
+ONBUILD ADD https://example.com/a.txt /app/
+ONBUILD COPY --from=busybox:1.36 /bin/busybox /bin/
+ONBUILD ADD https://github.com/cli/cli.git#v2.0 /cli/`,
+			wantImageCount: 2,
+			wantHTTPCount:  1,
+			wantGitCount:   1,
+			wantImages:     []string{"alpine:3.18", "busybox:1.36"},
+			wantHTTPURLs:   []string{"https://example.com/a.txt"},
+			wantGitURLs:    []string{"https://github.com/cli/cli.git#v2.0"},
+			wantLines: map[string]int{
+				"https://example.com/a.txt":           2,
+				"busybox:1.36":                        3,
+				"https://github.com/cli/cli.git#v2.0": 4,
+			},
+		},
+		{
+			name: "ONBUILD COPY --from referencing stage is skipped",
+			dockerfile: `FROM golang:1.21 AS builder
+RUN go build -o /app
+FROM alpine:3.18
+ONBUILD COPY --from=builder /app /usr/local/bin/`,
+			wantImageCount: 2,
+			wantImages:     []string{"golang:1.21", "alpine:3.18"},
+		},
+		{
+			name: "ONBUILD COPY --from with stage index is skipped",
+			dockerfile: `FROM golang:1.21
+RUN go build -o /app
+FROM alpine:3.18
+ONBUILD COPY --from=0 /app /app`,
+			wantImageCount: 2,
+		},
+		{
+			name: "ONBUILD ADD with --checksum is skipped",
+			dockerfile: `FROM alpine:3.18
+ONBUILD ADD --checksum=sha256:abc123 https://example.com/file.txt /app/`,
+			wantImageCount: 1,
+			wantHTTPCount:  0,
+		},
+		{
+			name: "ONBUILD with variable is skipped",
+			dockerfile: `FROM alpine:3.18
+ARG IMG=nginx:1.25
+ONBUILD COPY --from=${IMG} /etc/nginx/nginx.conf /etc/nginx/`,
+			wantImageCount: 1,
+		},
+		{
+			name: "ONBUILD COPY --from already digested is skipped",
+			dockerfile: `FROM alpine:3.18
+ONBUILD COPY --from=nginx@sha256:abc123def456abc123def456abc123def456abc123def456abc123def456abcd /etc/nginx/nginx.conf /etc/nginx/`,
+			wantImageCount: 1,
+		},
+		{
+			name: "mixed regular and ONBUILD instructions",
+			dockerfile: `FROM alpine:3.18
+ADD https://example.com/regular.txt /app/
+ONBUILD ADD https://example.com/onbuild.txt /app/
+COPY --from=nginx:1.25 /etc/nginx/nginx.conf /etc/nginx/
+ONBUILD COPY --from=busybox:1.36 /bin/busybox /bin/`,
+			wantImageCount: 3,
+			wantHTTPCount:  2,
+			wantImages:     []string{"alpine:3.18", "nginx:1.25", "busybox:1.36"},
+			wantHTTPURLs:   []string{"https://example.com/regular.txt", "https://example.com/onbuild.txt"},
+		},
+		{
+			name: "ONBUILD RUN is ignored (no refs to extract)",
+			dockerfile: `FROM alpine:3.18
+ONBUILD RUN echo "hello"`,
+			wantImageCount: 1,
+			wantHTTPCount:  0,
+			wantGitCount:   0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ParseAll(context.Background(), strings.NewReader(tt.dockerfile))
+			if err != nil {
+				t.Fatalf("ParseAll() error = %v", err)
+			}
+
+			// Verify counts
+			if len(result.Images) != tt.wantImageCount {
+				t.Errorf("Images count = %d, want %d", len(result.Images), tt.wantImageCount)
+			}
+			if len(result.HTTPSources) != tt.wantHTTPCount {
+				t.Errorf("HTTPSources count = %d, want %d", len(result.HTTPSources), tt.wantHTTPCount)
+			}
+			if len(result.GitSources) != tt.wantGitCount {
+				t.Errorf("GitSources count = %d, want %d", len(result.GitSources), tt.wantGitCount)
+			}
+
+			// Verify references
+			for i, want := range tt.wantImages {
+				if i < len(result.Images) && result.Images[i].Original != want {
+					t.Errorf("Images[%d].Original = %q, want %q", i, result.Images[i].Original, want)
+				}
+			}
+			for i, want := range tt.wantHTTPURLs {
+				if i < len(result.HTTPSources) && result.HTTPSources[i].URL != want {
+					t.Errorf("HTTPSources[%d].URL = %q, want %q", i, result.HTTPSources[i].URL, want)
+				}
+			}
+			for i, want := range tt.wantGitURLs {
+				if i < len(result.GitSources) && result.GitSources[i].URL != want {
+					t.Errorf("GitSources[%d].URL = %q, want %q", i, result.GitSources[i].URL, want)
+				}
+			}
+
+			// Verify line numbers (ONBUILD should use ONBUILD's line, not synthetic)
+			for ref, wantLine := range tt.wantLines {
+				verifyLineNumber(t, result, ref, wantLine)
+			}
+		})
+	}
+}
