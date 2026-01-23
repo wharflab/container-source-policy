@@ -293,35 +293,15 @@ func TestGetChecksumFromGitHubRelease(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create mock server that simulates GitHub API
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				// Verify correct headers are sent
-				if r.Header.Get("Accept") != "application/vnd.github+json" {
-					t.Error("expected Accept: application/vnd.github+json header")
-				}
-				if r.Header.Get("X-GitHub-Api-Version") != "2022-11-28" {
-					t.Error("expected X-GitHub-Api-Version: 2022-11-28 header")
-				}
-				w.WriteHeader(tt.responseCode)
-				_, _ = w.Write([]byte(tt.responseBody))
-			}))
-			defer server.Close()
-
-			// We need to test via GetChecksum since getChecksumFromGitHubRelease
-			// constructs its own API URL. We'll create a custom client that
-			// redirects API calls to our mock server.
-			client := &Client{
-				httpClient: server.Client(),
-			}
-
 			// Parse the test path as a URL
 			testURL, err := url.Parse("https://github.com" + tt.path)
 			if err != nil {
 				t.Fatalf("failed to parse test URL: %v", err)
 			}
 
-			// For the invalid URL test, we can call directly
+			// For the invalid URL test, no HTTP call is made
 			if tt.errContains == "invalid GitHub release URL format" {
+				client := NewClient()
 				_, err := client.getChecksumFromGitHubRelease(context.Background(), testURL)
 				if err == nil {
 					t.Error("expected error for invalid URL format")
@@ -331,14 +311,18 @@ func TestGetChecksumFromGitHubRelease(t *testing.T) {
 				return
 			}
 
-			// For other tests, we need to override the API URL
-			// Since we can't easily do that, let's test via a modified approach
-			// by directly calling with a mock that intercepts the HTTP call
+			// Use mock transport that intercepts HTTP calls and verifies headers
 			customClient := &Client{
 				httpClient: &http.Client{
 					Transport: &mockTransport{
 						handler: func(req *http.Request) (*http.Response, error) {
-							// Return our mock response
+							// Verify correct headers are sent
+							if req.Header.Get("Accept") != "application/vnd.github+json" {
+								t.Error("expected Accept: application/vnd.github+json header")
+							}
+							if req.Header.Get("X-GitHub-Api-Version") != "2022-11-28" {
+								t.Error("expected X-GitHub-Api-Version: 2022-11-28 header")
+							}
 							return &http.Response{
 								StatusCode: tt.responseCode,
 								Body:       io.NopCloser(strings.NewReader(tt.responseBody)),
