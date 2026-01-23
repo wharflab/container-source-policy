@@ -1,0 +1,6 @@
+# Codecov configuration
+# https://docs.codecov.com/docs/codecovyml-reference
+
+ignore:
+  - "internal/testutil/**"
+  - "internal/integration/testdata/**"

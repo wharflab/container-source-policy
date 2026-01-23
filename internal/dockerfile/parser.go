@@ -3,10 +3,12 @@ package dockerfile
 import (
 	"context"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 
 	"github.com/containers/image/v5/docker/reference"
+	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/moby/buildkit/frontend/dockerfile/parser"
 )
 
@@ -22,53 +24,187 @@ type ImageRef struct {
 	StageName string
 }
 
+// HTTPSourceRef represents an HTTP/HTTPS source reference extracted from a Dockerfile ADD instruction.
+// Note: ADD instructions with --checksum flag are excluded (already pinned).
+type HTTPSourceRef struct {
+	// URL is the HTTP/HTTPS URL as it appears in the Dockerfile
+	URL string
+	// Line is the line number in the Dockerfile where this reference appears
+	Line int
+}
+
+// ParseResult contains all extracted references from a Dockerfile
+type ParseResult struct {
+	// Images contains all container image references (FROM instructions)
+	Images []ImageRef
+	// HTTPSources contains all HTTP/HTTPS source references (ADD instructions without checksum)
+	HTTPSources []HTTPSourceRef
+}
+
+// openDockerfile opens a Dockerfile path for reading.
+// If path is "-", returns os.Stdin and a no-op closer.
+// Otherwise, opens the file and returns it with its Close method.
+func openDockerfile(path string) (io.Reader, func() error, error) {
+	if path == "-" {
+		return os.Stdin, func() error { return nil }, nil
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	return f, f.Close, nil
+}
+
 // ParseFile parses a Dockerfile and extracts all image references
 func ParseFile(ctx context.Context, path string) ([]ImageRef, error) {
-	var r io.Reader
-	if path == "-" {
-		r = os.Stdin
-	} else {
-		f, err := os.Open(path)
-		if err != nil {
-			return nil, err
-		}
-		defer func() { _ = f.Close() }()
-		r = f
+	r, closer, err := openDockerfile(path)
+	if err != nil {
+		return nil, err
 	}
+	defer func() { _ = closer() }()
 	return Parse(ctx, r)
 }
 
 // Parse parses a Dockerfile from a reader and extracts all image references
 func Parse(ctx context.Context, r io.Reader) ([]ImageRef, error) {
-	result, err := parser.Parse(r)
+	result, err := ParseAll(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+	return result.Images, nil
+}
+
+// ParseAllFile parses a Dockerfile and extracts all references (images and HTTP sources)
+func ParseAllFile(ctx context.Context, path string) (*ParseResult, error) {
+	r, closer, err := openDockerfile(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = closer() }()
+	return ParseAll(ctx, r)
+}
+
+// ParseAll parses a Dockerfile from a reader and extracts all references
+func ParseAll(ctx context.Context, r io.Reader) (*ParseResult, error) {
+	ast, err := parser.Parse(r)
 	if err != nil {
 		return nil, err
 	}
 
-	var refs []ImageRef
+	// Use BuildKit's higher-level instruction parser
+	stages, _, err := instructions.Parse(ast.AST, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	parseResult := &ParseResult{
+		Images:      []ImageRef{},
+		HTTPSources: []HTTPSourceRef{},
+	}
+
+	// Track stage names for detecting multi-stage references
 	stageNames := make(map[string]bool)
 
-	for _, child := range result.AST.Children {
-		if strings.EqualFold(child.Value, "from") {
-			ref, err := parseFromInstruction(child, stageNames)
-			if err != nil {
-				return nil, err
-			}
-			if ref != nil {
-				refs = append(refs, *ref)
-				// Track the stage name for subsequent FROM instructions
-				if ref.StageName != "" {
-					stageNames[strings.ToLower(ref.StageName)] = true
-				}
+	for _, stage := range stages {
+		// Extract image reference from stage
+		if ref := extractImageRef(stage, stageNames); ref != nil {
+			parseResult.Images = append(parseResult.Images, *ref)
+		}
+
+		// Track stage name for subsequent stages
+		if stage.Name != "" {
+			stageNames[strings.ToLower(stage.Name)] = true
+		}
+
+		// Extract HTTP sources from ADD commands in this stage
+		for _, cmd := range stage.Commands {
+			if addCmd, ok := cmd.(*instructions.AddCommand); ok {
+				httpRefs := extractHTTPSources(addCmd)
+				parseResult.HTTPSources = append(parseResult.HTTPSources, httpRefs...)
 			}
 		}
 	}
 
-	return refs, nil
+	return parseResult, nil
+}
+
+// extractImageRef extracts an image reference from a stage's FROM instruction
+func extractImageRef(stage instructions.Stage, stageNames map[string]bool) *ImageRef {
+	baseName := stage.BaseName
+
+	// Skip scratch base image
+	if strings.EqualFold(baseName, "scratch") {
+		return nil
+	}
+
+	// Skip references to previous build stages (multi-stage builds)
+	if stageNames[strings.ToLower(baseName)] {
+		return nil
+	}
+
+	// Skip references containing unexpanded ARG/ENV variables
+	if containsVariable(baseName) {
+		return nil
+	}
+
+	// Skip images already pinned by digest (e.g., name@sha256:...)
+	if strings.Contains(baseName, "@sha256:") {
+		return nil
+	}
+
+	// Parse the image reference using containers/image library
+	named, err := reference.ParseNormalizedNamed(baseName)
+	if err != nil {
+		// Return nil instead of error - invalid refs are skipped
+		return nil
+	}
+
+	line := 0
+	if len(stage.Location) > 0 {
+		line = stage.Location[0].Start.Line
+	}
+
+	return &ImageRef{
+		Original:  baseName,
+		Ref:       named,
+		Line:      line,
+		StageName: stage.Name,
+	}
+}
+
+// extractHTTPSources extracts HTTP/HTTPS URLs from an ADD command
+func extractHTTPSources(addCmd *instructions.AddCommand) []HTTPSourceRef {
+	// If checksum is already specified, skip this ADD
+	if addCmd.Checksum != "" {
+		return nil
+	}
+
+	var refs []HTTPSourceRef
+	line := 0
+	if locs := addCmd.Location(); len(locs) > 0 {
+		line = locs[0].Start.Line
+	}
+
+	for _, src := range addCmd.SourcePaths {
+		// Skip sources containing unexpanded variables
+		if containsVariable(src) {
+			continue
+		}
+
+		// Only include HTTP/HTTPS URLs
+		if isHTTPURL(src) {
+			refs = append(refs, HTTPSourceRef{
+				URL:  src,
+				Line: line,
+			})
+		}
+	}
+
+	return refs
 }
 
 // containsVariable checks if the string contains unexpanded ARG/ENV syntax
-// Detects ${VAR}, $VAR patterns (but not $() command substitution which isn't valid in FROM)
+// Detects ${VAR}, $VAR patterns
 func containsVariable(s string) bool {
 	if strings.Contains(s, "${") {
 		return true
@@ -86,47 +222,12 @@ func containsVariable(s string) bool {
 	return false
 }
 
-func parseFromInstruction(node *parser.Node, stageNames map[string]bool) (*ImageRef, error) {
-	if node.Next == nil {
-		return nil, nil
-	}
-
-	original := node.Next.Value
-
-	// Skip scratch base image
-	if strings.EqualFold(original, "scratch") {
-		return nil, nil
-	}
-
-	// Skip references to previous build stages (multi-stage builds)
-	if stageNames[strings.ToLower(original)] {
-		return nil, nil
-	}
-
-	// Skip references containing unexpanded ARG/ENV variables
-	if containsVariable(original) {
-		return nil, nil
-	}
-
-	// Parse the image reference using containers/image library
-	named, err := reference.ParseNormalizedNamed(original)
+// isHTTPURL checks if a string is an HTTP or HTTPS URL
+func isHTTPURL(s string) bool {
+	u, err := url.Parse(s)
 	if err != nil {
-		return nil, err
+		return false
 	}
-
-	ref := &ImageRef{
-		Original: original,
-		Ref:      named,
-		Line:     node.StartLine,
-	}
-
-	// Check for AS clause (named stage)
-	for n := node.Next; n != nil; n = n.Next {
-		if strings.EqualFold(n.Value, "as") && n.Next != nil {
-			ref.StageName = n.Next.Value
-			break
-		}
-	}
-
-	return ref, nil
+	scheme := strings.ToLower(u.Scheme)
+	return scheme == "http" || scheme == "https"
 }

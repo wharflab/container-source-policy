@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "action": "CONVERT",
+      "selector": {
+        "identifier": "https://raw.githubusercontent.com/moby/moby/master/README.md",
+        "matchType": "EXACT"
+      },
+      "updates": {
+        "attrs": {
+          "http.checksum": "sha256:deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+        }
+      }
+    }
+  ]
+}

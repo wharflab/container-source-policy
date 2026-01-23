@@ -10,6 +10,7 @@ import (
 	"github.com/opencontainers/go-digest"
 
 	"github.com/tinovyatkin/container-source-policy/internal/dockerfile"
+	httpclient "github.com/tinovyatkin/container-source-policy/internal/http"
 	"github.com/tinovyatkin/container-source-policy/internal/policy"
 	"github.com/tinovyatkin/container-source-policy/internal/registry"
 )
@@ -21,23 +22,26 @@ type Options struct {
 
 // GeneratePolicy parses Dockerfiles and generates a source policy with pinned digests
 func GeneratePolicy(ctx context.Context, opts Options) (*policy.Policy, error) {
-	client := registry.NewClient()
+	registryClient := registry.NewClient()
+	httpClient := httpclient.NewClient()
 	pol := policy.NewPolicy()
 
-	seen := make(map[string]bool)
+	seenImages := make(map[string]bool)
+	seenHTTP := make(map[string]bool)
 
 	for _, dockerfilePath := range opts.Dockerfiles {
-		refs, err := dockerfile.ParseFile(ctx, dockerfilePath)
+		parseResult, err := dockerfile.ParseAllFile(ctx, dockerfilePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse %s: %w", dockerfilePath, err)
 		}
 
-		for _, ref := range refs {
+		// Process image references (FROM instructions)
+		for _, ref := range parseResult.Images {
 			// Skip if already processed
-			if seen[ref.Original] {
+			if seenImages[ref.Original] {
 				continue
 			}
-			seen[ref.Original] = true
+			seenImages[ref.Original] = true
 
 			// Skip references that already have a digest
 			if _, ok := ref.Ref.(reference.Digested); ok {
@@ -45,7 +49,7 @@ func GeneratePolicy(ctx context.Context, opts Options) (*policy.Policy, error) {
 			}
 
 			// Get the digest from the registry
-			digestStr, err := client.GetDigest(ctx, ref.Ref)
+			digestStr, err := registryClient.GetDigest(ctx, ref.Ref)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get digest for %s: %w", ref.Original, err)
 			}
@@ -63,6 +67,24 @@ func GeneratePolicy(ctx context.Context, opts Options) (*policy.Policy, error) {
 
 			// Add the pin rule
 			pol.AddPinRule(ref.Original, pinnedRef.String())
+		}
+
+		// Process HTTP sources (ADD instructions without checksum)
+		for _, httpRef := range parseResult.HTTPSources {
+			// Skip if already processed
+			if seenHTTP[httpRef.URL] {
+				continue
+			}
+			seenHTTP[httpRef.URL] = true
+
+			// Get the checksum for the HTTP resource
+			checksum, err := httpClient.GetChecksum(ctx, httpRef.URL)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get checksum for %s: %w", httpRef.URL, err)
+			}
+
+			// Add the HTTP checksum rule
+			pol.AddHTTPChecksumRule(httpRef.URL, checksum)
 		}
 	}
 

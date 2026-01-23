@@ -77,6 +77,8 @@ container-source-policy completion zsh
 
 ## What gets pinned
 
+### Container images (`FROM`)
+
 - Looks at `FROM …` instructions across all provided Dockerfiles.
 - Skips:
   - `FROM scratch`
@@ -85,6 +87,20 @@ container-source-policy completion zsh
   - images already written as `name@sha256:…`
 - Resolves the image manifest digest from the registry and emits BuildKit `CONVERT` rules of the form:
   - `docker-image://<as-written-in-Dockerfile>` → `docker-image://<normalized>@sha256:…`
+
+### HTTP sources (`ADD`)
+
+- Looks at `ADD <url> …` instructions with HTTP/HTTPS URLs.
+- Skips:
+  - `ADD --checksum=… <url>` (already pinned)
+  - URLs containing unexpanded variables (`${VAR}`, `$VAR`)
+- Fetches the checksum and emits `CONVERT` rules with `http.checksum` attribute.
+
+**Optimized checksum fetching** — avoids downloading large files when possible:
+- `raw.githubusercontent.com`: extracts SHA256 from ETag header
+- GitHub releases: uses the API `digest` field (set `GITHUB_TOKEN` for higher rate limits)
+- S3: uses `x-amz-checksum-sha256` response header (by sending `x-amz-checksum-mode: ENABLED`)
+- Fallback: downloads and computes SHA256
 
 ## Development
 
@@ -103,11 +119,12 @@ UPDATE_SNAPS=true go test ./internal/integration/...
 ## Repository layout
 
 - `cmd/container-source-policy/cmd/`: Cobra CLI commands
-- `internal/dockerfile`: Dockerfile parsing (`FROM` extraction)
-- `internal/registry`: registry client (digest resolution)
+- `internal/dockerfile`: Dockerfile parsing (`FROM` and `ADD` extraction)
+- `internal/registry`: registry client (image digest resolution)
+- `internal/http`: HTTP client (URL checksum fetching with optimizations)
 - `internal/policy`: BuildKit source policy types and JSON output
 - `internal/pin`: orchestration logic for `pin`
-- `internal/integration`: end-to-end tests with a mock registry and snapshots
+- `internal/integration`: end-to-end tests with mock registry/HTTP server and snapshots
 - `packaging/`: wrappers for publishing prebuilt binaries to npm / PyPI / RubyGems
 
 ## Packaging
