@@ -2,12 +2,15 @@
 
 ## Project Overview
 
-`container-source-policy` is a CLI tool for generating BuildKit source policy files (`--source-policy-file` input for `docker buildx build`). It parses Dockerfiles to extract image references and pins them to their current digests.
+`container-source-policy` is a CLI tool for generating BuildKit source policy files. It parses Dockerfiles to extract image references and pins them to their current digests.
+
+Source policies are passed to `docker buildx build` via the `EXPERIMENTAL_BUILDKIT_SOURCE_POLICY` environment variable, or to `buildctl` via the `--source-policy-file` flag. See the [BuildKit build reproducibility docs](https://github.com/moby/buildkit/blob/master/docs/build-repro.md).
 
 ## Design Philosophy
 
 **Minimize code ownership** - This project heavily reuses existing, well-maintained libraries:
 - `github.com/moby/buildkit/frontend/dockerfile/parser` - Official Dockerfile parsing
+- `github.com/moby/buildkit/sourcepolicy/pb` - Official BuildKit source policy types
 - `github.com/containers/image/v5/docker/reference` - Image reference parsing and normalization
 - `github.com/containers/image/v5/docker` - Registry interaction
 - `github.com/containers/image/v5/manifest` - Manifest digest computation
@@ -54,7 +57,7 @@ go run . pin --stdout Dockerfile
 │   │   └── parser_test.go
 │   ├── registry/                     # Registry client (uses containers/image)
 │   │   └── client.go
-│   ├── policy/                       # BuildKit source policy types
+│   ├── policy/                       # BuildKit source policy helpers (wraps sourcepolicy/pb)
 │   │   └── types.go
 │   ├── pin/                          # Pin operation logic
 │   │   └── pin.go
@@ -118,7 +121,7 @@ The `CONTAINERS_REGISTRIES_CONF` support enables testing with a mock registry by
 
 ## BuildKit Source Policy Format
 
-Output follows the BuildKit source policy protobuf schema with JSON encoding:
+Output follows the official BuildKit source policy protobuf schema (`github.com/moby/buildkit/sourcepolicy/pb`) with JSON encoding:
 ```json
 {
   "version": 1,
@@ -127,7 +130,7 @@ Output follows the BuildKit source policy protobuf schema with JSON encoding:
       "action": "CONVERT",
       "selector": {
         "identifier": "docker-image://alpine:3.18",
-        "matchType": "EXACT"
+        "match_type": "EXACT"
       },
       "updates": {
         "identifier": "docker-image://docker.io/library/alpine:3.18@sha256:..."

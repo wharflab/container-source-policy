@@ -1,6 +1,6 @@
 # container-source-policy
 
-Generate a Docker BuildKit **source policy** file (`docker buildx build --source-policy-file …`) by parsing Dockerfiles and pinning `FROM` images to
+Generate a Docker BuildKit **source policy** file by parsing Dockerfiles and pinning `FROM` images to
 immutable digests.
 
 This PyPI package ships a small Python launcher plus a prebuilt `container-source-policy` binary for your platform.
@@ -23,7 +23,7 @@ python -m pip install container-source-policy
 
 ```bash
 container-source-policy pin --stdout Dockerfile > source-policy.json
-docker buildx build --source-policy-file source-policy.json -t my-image:dev .
+EXPERIMENTAL_BUILDKIT_SOURCE_POLICY=source-policy.json docker buildx build -t my-image:dev .
 ```
 
 ## More info

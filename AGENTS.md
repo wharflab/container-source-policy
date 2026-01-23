@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This repository is a Go CLI for generating BuildKit source policy files (`docker buildx build --source-policy-file …`) by parsing Dockerfiles and pinning image references to digests.
+This repository is a Go CLI for generating BuildKit source policy files by parsing Dockerfiles and pinning image references to digests. Policies are passed to `docker buildx build` via the `EXPERIMENTAL_BUILDKIT_SOURCE_POLICY` environment variable, or to `buildctl` via `--source-policy-file`.
 
 - `main.go`: application entrypoint
 - `cmd/container-source-policy/cmd/`: Cobra commands (`root.go`, `pin.go`, `version.go`)
