@@ -87,9 +87,9 @@ container-source-policy completion zsh
 
 ## What gets pinned
 
-### Container images (`FROM` and `COPY --from`)
+### Container images (`FROM`, `COPY --from`, `ONBUILD`)
 
-- Looks at `FROM …` and `COPY --from=<image>` instructions across all provided Dockerfiles.
+- Looks at `FROM …`, `COPY --from=<image>`, and their `ONBUILD` variants across all provided Dockerfiles.
 - Skips:
   - `FROM scratch`
   - `FROM <stage>` / `COPY --from=<stage>` references to a previous named build stage
@@ -99,9 +99,9 @@ container-source-policy completion zsh
 - Resolves the image manifest digest from the registry and emits BuildKit `CONVERT` rules of the form:
   - `docker-image://<as-written-in-Dockerfile>` → `docker-image://<normalized>@sha256:…`
 
-### HTTP sources (`ADD`)
+### HTTP sources (`ADD`, `ONBUILD ADD`)
 
-- Looks at `ADD <url> …` instructions with HTTP/HTTPS URLs.
+- Looks at `ADD <url> …` and `ONBUILD ADD <url> …` instructions with HTTP/HTTPS URLs.
 - Skips:
   - `ADD --checksum=… <url>` (already pinned)
   - URLs containing unexpanded variables (`${VAR}`, `$VAR`)
@@ -115,9 +115,9 @@ container-source-policy completion zsh
 - S3: uses `x-amz-checksum-sha256` response header (by sending `x-amz-checksum-mode: ENABLED`)
 - Fallback: downloads and computes SHA256
 
-### Git sources (`ADD`)
+### Git sources (`ADD`, `ONBUILD ADD`)
 
-- Looks at `ADD <git-url> …` instructions with Git repository URLs.
+- Looks at `ADD <git-url> …` and `ONBUILD ADD <git-url> …` instructions with Git repository URLs.
 - Supports various Git URL formats:
   - `https://github.com/owner/repo.git#ref`
   - `git://host/path#ref`

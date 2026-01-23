@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "action": "CONVERT",
+      "selector": {
+        "identifier": "docker-image://alpine:3.18",
+        "match_type": "EXACT"
+      },
+      "updates": {
+        "identifier": "docker-image://docker.io/library/alpine:3.18@sha256:dca69b6823d2cff137b073f278d243679fccbbe39b939dbff7747587013cc3b7"
+      }
+    },
+    {
+      "action": "CONVERT",
+      "selector": {
+        "identifier": "docker-image://nginx:1.25",
+        "match_type": "EXACT"
+      },
+      "updates": {
+        "identifier": "docker-image://docker.io/library/nginx:1.25@sha256:df7fd5c16c35c1ce32768cab64b4e860ec4e481088314f22abb3b43276a498b7"
+      }
+    },
+    {
+      "action": "CONVERT",
+      "selector": {
+        "identifier": "https://raw.githubusercontent.com/moby/moby/v28.0.1/README.md",
+        "match_type": "EXACT"
+      },
+      "updates": {
+        "attrs": {
+          "http.checksum": "sha256:b439baea78c6d70dedd775a8aebf24b4d7241269ca0bd387b4697f7326278fdc"
+        }
+      }
+    }
+  ]
+}

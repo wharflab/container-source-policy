@@ -129,18 +129,11 @@ func ParseAll(ctx context.Context, r io.Reader) (*ParseResult, error) {
 		}
 
 		// Extract image references and sources from commands in this stage
-		for _, cmd := range stage.Commands {
-			switch c := cmd.(type) {
-			case *instructions.AddCommand:
-				httpRefs, gitRefs := extractAddSources(c)
-				parseResult.HTTPSources = append(parseResult.HTTPSources, httpRefs...)
-				parseResult.GitSources = append(parseResult.GitSources, gitRefs...)
-			case *instructions.CopyCommand:
-				if ref := extractCopyFromImage(c, stageNames); ref != nil {
-					parseResult.Images = append(parseResult.Images, *ref)
-				}
-			}
-		}
+		// (handles ADD, COPY --from, and ONBUILD variants)
+		images, httpSources, gitSources := extractFromCommands(stage.Commands, stageNames, 0)
+		parseResult.Images = append(parseResult.Images, images...)
+		parseResult.HTTPSources = append(parseResult.HTTPSources, httpSources...)
+		parseResult.GitSources = append(parseResult.GitSources, gitSources...)
 	}
 
 	return parseResult, nil
@@ -202,23 +195,26 @@ func extractImageRef(stage instructions.Stage, stageNames map[string]bool) *Imag
 	return ref
 }
 
+// getCommandLine extracts the line number from a command's location
+func getCommandLine(locs []parser.Range) int {
+	if len(locs) > 0 {
+		return locs[0].Start.Line
+	}
+	return 0
+}
+
 // extractCopyFromImage extracts an image reference from a COPY --from instruction
-func extractCopyFromImage(copyCmd *instructions.CopyCommand, stageNames map[string]bool) *ImageRef {
+func extractCopyFromImage(copyCmd *instructions.CopyCommand, stageNames map[string]bool, line int) *ImageRef {
 	// No --from flag or empty value
 	if copyCmd.From == "" {
 		return nil
-	}
-
-	line := 0
-	if locs := copyCmd.Location(); len(locs) > 0 {
-		line = locs[0].Start.Line
 	}
 
 	return parseImageReference(copyCmd.From, line, stageNames)
 }
 
 // extractAddSources extracts HTTP/HTTPS and Git URLs from an ADD command
-func extractAddSources(addCmd *instructions.AddCommand) ([]HTTPSourceRef, []GitSourceRef) {
+func extractAddSources(addCmd *instructions.AddCommand, line int) ([]HTTPSourceRef, []GitSourceRef) {
 	// If checksum is already specified, skip this ADD
 	if addCmd.Checksum != "" {
 		return nil, nil
@@ -226,10 +222,6 @@ func extractAddSources(addCmd *instructions.AddCommand) ([]HTTPSourceRef, []GitS
 
 	var httpRefs []HTTPSourceRef
 	var gitRefs []GitSourceRef
-	line := 0
-	if locs := addCmd.Location(); len(locs) > 0 {
-		line = locs[0].Start.Line
-	}
 
 	for _, src := range addCmd.SourcePaths {
 		// Skip sources containing unexpanded variables
@@ -253,6 +245,63 @@ func extractAddSources(addCmd *instructions.AddCommand) ([]HTTPSourceRef, []GitS
 	}
 
 	return httpRefs, gitRefs
+}
+
+// parseOnbuildExpression parses an ONBUILD expression string and returns the contained commands.
+// It wraps the expression in a minimal Dockerfile to leverage BuildKit's parser.
+func parseOnbuildExpression(expression string) []instructions.Command {
+	// Wrap in a minimal Dockerfile to make the parser happy
+	dockerfile := "FROM scratch\n" + expression
+	ast, err := parser.Parse(strings.NewReader(dockerfile))
+	if err != nil {
+		return nil
+	}
+	stages, _, err := instructions.Parse(ast.AST, nil)
+	if err != nil || len(stages) == 0 {
+		return nil
+	}
+	return stages[0].Commands
+}
+
+// extractFromCommands extracts image, HTTP, and Git references from a list of commands.
+// It handles ADD, COPY --from, and ONBUILD instructions (recursively for ONBUILD).
+// lineOverride, if > 0, overrides the line number for all extracted refs (used for ONBUILD).
+func extractFromCommands(
+	cmds []instructions.Command,
+	stageNames map[string]bool,
+	lineOverride int,
+) ([]ImageRef, []HTTPSourceRef, []GitSourceRef) {
+	var images []ImageRef
+	var httpSources []HTTPSourceRef
+	var gitSources []GitSourceRef
+
+	for _, cmd := range cmds {
+		line := lineOverride
+		if line == 0 {
+			line = getCommandLine(cmd.Location())
+		}
+
+		switch c := cmd.(type) {
+		case *instructions.AddCommand:
+			httpRefs, gitRefs := extractAddSources(c, line)
+			httpSources = append(httpSources, httpRefs...)
+			gitSources = append(gitSources, gitRefs...)
+		case *instructions.CopyCommand:
+			if ref := extractCopyFromImage(c, stageNames, line); ref != nil {
+				images = append(images, *ref)
+			}
+		case *instructions.OnbuildCommand:
+			// Parse ONBUILD expression and recursively extract refs
+			// Use the ONBUILD instruction's line for all extracted refs
+			innerCmds := parseOnbuildExpression(c.Expression)
+			innerImages, innerHTTP, innerGit := extractFromCommands(innerCmds, stageNames, line)
+			images = append(images, innerImages...)
+			httpSources = append(httpSources, innerHTTP...)
+			gitSources = append(gitSources, innerGit...)
+		}
+	}
+
+	return images, httpSources, gitSources
 }
 
 // containsVariable checks if the string contains unexpanded ARG/ENV syntax
