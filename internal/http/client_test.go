@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -100,6 +101,72 @@ func TestComputeChecksum(t *testing.T) {
 
 	if checksum != expectedChecksum {
 		t.Errorf("computeChecksum() = %v, want %v", checksum, expectedChecksum)
+	}
+}
+
+func TestComputeChecksum_ContentLengthMismatch(t *testing.T) {
+	tests := []struct {
+		name          string
+		content       []byte
+		contentLength int // -1 means don't set Content-Length (chunked)
+		wantErr       bool
+	}{
+		{
+			name:          "matching Content-Length",
+			content:       []byte("Hello, World!"),
+			contentLength: 13,
+			wantErr:       false,
+		},
+		{
+			name:          "no Content-Length (chunked encoding)",
+			content:       []byte("Hello, World!"),
+			contentLength: -1,
+			wantErr:       false,
+		},
+		{
+			// Go's http.Client catches this at the transport level with "unexpected EOF"
+			// Our code adds defense-in-depth validation
+			name:          "Content-Length too large (server sent fewer bytes)",
+			content:       []byte("Hello"),
+			contentLength: 100,
+			wantErr:       true,
+		},
+		{
+			// Go's http.Client catches this at the transport level with "unexpected EOF"
+			// Our code adds defense-in-depth validation
+			name:          "Content-Length too small (server sent more bytes)",
+			content:       []byte("Hello, World!"),
+			contentLength: 5,
+			wantErr:       true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if tt.contentLength >= 0 {
+					w.Header().Set("Content-Length", strconv.Itoa(tt.contentLength))
+				}
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write(tt.content)
+			}))
+			defer server.Close()
+
+			client := NewClient()
+			_, err := client.computeChecksum(context.Background(), server.URL)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("computeChecksum() expected error for Content-Length mismatch, got nil")
+				}
+				// Accept either Go's transport-level error or our validation error
+				// Both indicate an untrusted server, which is the behavior we want
+			} else {
+				if err != nil {
+					t.Errorf("computeChecksum() unexpected error = %v", err)
+				}
+			}
+		})
 	}
 }
 

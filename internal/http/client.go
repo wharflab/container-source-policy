@@ -330,8 +330,15 @@ func (c *Client) computeChecksumWithHeaders(ctx context.Context, rawURL string) 
 	}
 
 	hash := sha256.New()
-	if _, err := io.Copy(hash, resp.Body); err != nil {
+	n, err := io.Copy(hash, resp.Body)
+	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Validate Content-Length if provided (-1 means not present, e.g., chunked encoding)
+	// A mismatch indicates server misconfiguration or network issues - we shouldn't trust such sources for pinning
+	if resp.ContentLength >= 0 && n != resp.ContentLength {
+		return nil, fmt.Errorf("content length mismatch: server declared %d bytes but sent %d", resp.ContentLength, n)
 	}
 
 	checksum := "sha256:" + hex.EncodeToString(hash.Sum(nil))
