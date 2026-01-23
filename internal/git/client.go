@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -77,6 +78,17 @@ func (c *Client) GetCommitChecksum(ctx context.Context, rawURL string) (string, 
 	// Use git ls-remote to get the commit SHA
 	// This works for branches and tags without cloning
 	cmd := exec.CommandContext(ctx, "git", "ls-remote", gitRef.Remote, gitRef.Ref)
+
+	// Set environment to prevent interactive prompts and ensure consistent behavior
+	// This matches BuildKit's approach in util/gitutil/git_cli.go
+	cmd.Env = []string{
+		"PATH=" + os.Getenv("PATH"),
+		"GIT_TERMINAL_PROMPT=0", // Prevent git from prompting for credentials
+		"GIT_CONFIG_NOSYSTEM=1", // Disable reading from system gitconfig
+		"HOME=/dev/null",        // Disable reading from user gitconfig
+		"LC_ALL=C",              // Ensure consistent output format
+	}
+
 	output, err := cmd.Output()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
