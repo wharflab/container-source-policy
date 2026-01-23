@@ -1,15 +1,19 @@
 # container-source-policy
 
-Generate a Docker BuildKit **source policy** file (`docker buildx build --source-policy-file …`) by parsing Dockerfiles and pinning `FROM` images to immutable digests.
+Generate a Docker BuildKit **source policy** file by parsing Dockerfiles and pinning `FROM` images to immutable digests.
 
 This helps make `docker buildx build` inputs reproducible without rewriting your Dockerfile.
+
+See the [BuildKit documentation on build reproducibility](https://github.com/moby/buildkit/blob/master/docs/build-repro.md) for more details on source policies.
 
 ## Quick start
 
 ```bash
 container-source-policy pin --stdout Dockerfile > source-policy.json
-docker buildx build --source-policy-file source-policy.json -t my-image:dev .
+EXPERIMENTAL_BUILDKIT_SOURCE_POLICY=source-policy.json docker buildx build -t my-image:dev .
 ```
+
+> **Note:** [`EXPERIMENTAL_BUILDKIT_SOURCE_POLICY`](https://docs.docker.com/build/building/variables/#experimental_buildkit_source_policy) is the environment variable used by Docker Buildx to specify a source policy file.
 
 ## Install
 
@@ -63,10 +67,16 @@ Write directly to a file:
 container-source-policy pin --output source-policy.json Dockerfile
 ```
 
-Then pass the policy to BuildKit / Buildx:
+Then pass the policy to BuildKit / Buildx via the environment variable:
 
 ```bash
-docker buildx build --source-policy-file source-policy.json .
+EXPERIMENTAL_BUILDKIT_SOURCE_POLICY=source-policy.json docker buildx build .
+```
+
+Or use `buildctl` directly with the `--source-policy-file` flag:
+
+```bash
+buildctl build --frontend dockerfile.v0 --local dockerfile=. --local context=. --source-policy-file source-policy.json
 ```
 
 Shell completion scripts are available via Cobra:

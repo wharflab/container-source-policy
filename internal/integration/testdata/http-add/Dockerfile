@@ -2,8 +2,8 @@
 # This should be subject to source policy pinning
 FROM alpine:3.18
 
-# ADD with HTTP URL - no checksum specified, making it non-reproducible
-# Source policy can add http.checksum attribute to pin it
-ADD https://raw.githubusercontent.com/moby/moby/master/README.md /README.md
+# ADD with GitHub release URL - no checksum specified
+# Uses a versioned release that has stable digest via GitHub API
+ADD https://github.com/cli/cli/releases/download/v2.85.0/gh_2.85.0_checksums.txt /checksums.txt
 
-RUN cat /README.md
+RUN cat /checksums.txt

@@ -1,79 +1,56 @@
+// Package policy provides helper functions for creating BuildKit source policies.
+// It wraps the official github.com/moby/buildkit/sourcepolicy/pb types.
 package policy
 
-// Policy represents a BuildKit source policy
-// See: https://github.com/moby/buildkit/blob/master/sourcepolicy/pb/policy.proto
-type Policy struct {
-	Version int64  `json:"version"`
-	Rules   []Rule `json:"rules"`
-}
+import (
+	"context"
+	"encoding/json"
 
-// Rule defines the action(s) to take when a source is matched
-type Rule struct {
-	Action   PolicyAction `json:"action"`
-	Selector Selector     `json:"selector"`
-	Updates  *Update      `json:"updates,omitempty"`
-}
-
-// Selector identifies a source to match a policy to
-type Selector struct {
-	Identifier  string           `json:"identifier"`
-	MatchType   MatchType        `json:"matchType,omitempty"`
-	Constraints []AttrConstraint `json:"constraints,omitempty"`
-}
-
-// Update contains updates to the matched build step after rule is applied
-type Update struct {
-	Identifier string            `json:"identifier,omitempty"`
-	Attrs      map[string]string `json:"attrs,omitempty"`
-}
-
-// AttrConstraint defines a constraint on a source attribute
-type AttrConstraint struct {
-	Key       string    `json:"key"`
-	Value     string    `json:"value"`
-	Condition AttrMatch `json:"condition,omitempty"`
-}
-
-// PolicyAction defines the action to take when a source is matched
-type PolicyAction string
-
-const (
-	PolicyActionAllow   PolicyAction = "ALLOW"
-	PolicyActionDeny    PolicyAction = "DENY"
-	PolicyActionConvert PolicyAction = "CONVERT"
+	"github.com/moby/buildkit/solver/pb"
+	"github.com/moby/buildkit/sourcepolicy"
+	spb "github.com/moby/buildkit/sourcepolicy/pb"
 )
 
-// MatchType is used to determine how a rule source is matched
-type MatchType string
-
-const (
-	MatchTypeWildcard MatchType = "WILDCARD"
-	MatchTypeExact    MatchType = "EXACT"
-	MatchTypeRegex    MatchType = "REGEX"
+// Re-export types from buildkit sourcepolicy/pb for convenience
+type (
+	Policy         = spb.Policy
+	Rule           = spb.Rule
+	Selector       = spb.Selector
+	Update         = spb.Update
+	AttrConstraint = spb.AttrConstraint
+	PolicyAction   = spb.PolicyAction
+	MatchType      = spb.MatchType
+	AttrMatch      = spb.AttrMatch
 )
 
-// AttrMatch defines the condition to match a source attribute
-type AttrMatch string
-
+// Re-export constants
 const (
-	AttrMatchEqual    AttrMatch = "EQUAL"
-	AttrMatchNotEqual AttrMatch = "NOTEQUAL"
-	AttrMatchMatches  AttrMatch = "MATCHES"
+	PolicyActionAllow   = spb.PolicyAction_ALLOW
+	PolicyActionDeny    = spb.PolicyAction_DENY
+	PolicyActionConvert = spb.PolicyAction_CONVERT
+
+	MatchTypeWildcard = spb.MatchType_WILDCARD
+	MatchTypeExact    = spb.MatchType_EXACT
+	MatchTypeRegex    = spb.MatchType_REGEX
+
+	AttrMatchEqual    = spb.AttrMatch_EQUAL
+	AttrMatchNotEqual = spb.AttrMatch_NOTEQUAL
+	AttrMatchMatches  = spb.AttrMatch_MATCHES
 )
 
 // NewPolicy creates a new policy with the default version
 func NewPolicy() *Policy {
 	return &Policy{
 		Version: 1,
-		Rules:   []Rule{},
+		Rules:   []*Rule{},
 	}
 }
 
 // AddPinRule adds a rule that pins an image reference to a specific digest
-func (p *Policy) AddPinRule(originalRef, pinnedRef string) {
-	rule := Rule{
+func AddPinRule(p *Policy, originalRef, pinnedRef string) {
+	rule := &Rule{
 		Action: PolicyActionConvert,
-		Selector: Selector{
+		Selector: &Selector{
 			Identifier: "docker-image://" + originalRef,
 			MatchType:  MatchTypeExact,
 		},
@@ -86,10 +63,10 @@ func (p *Policy) AddPinRule(originalRef, pinnedRef string) {
 
 // AddHTTPChecksumRule adds a rule that pins an HTTP/HTTPS source to a specific checksum
 // The checksum should be in the format "sha256:..." or similar digest format
-func (p *Policy) AddHTTPChecksumRule(url, checksum string) {
-	rule := Rule{
+func AddHTTPChecksumRule(p *Policy, url, checksum string) {
+	rule := &Rule{
 		Action: PolicyActionConvert,
-		Selector: Selector{
+		Selector: &Selector{
 			Identifier: url,
 			MatchType:  MatchTypeExact,
 		},
@@ -100,4 +77,33 @@ func (p *Policy) AddHTTPChecksumRule(url, checksum string) {
 		},
 	}
 	p.Rules = append(p.Rules, rule)
+}
+
+// Validate checks that the policy is valid by performing a JSON round-trip
+// through the BuildKit sourcepolicy/pb types. This is the same validation
+// that BuildKit performs when loading a policy file via json.Unmarshal.
+func Validate(p *Policy) error {
+	data, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	var validated spb.Policy
+	return json.Unmarshal(data, &validated)
+}
+
+// ValidateWithEvaluate performs deeper validation by running each rule through
+// BuildKit's sourcepolicy engine. This tests that the generated rules can actually
+// be evaluated against source operations, providing runtime validation beyond
+// structural correctness.
+func ValidateWithEvaluate(ctx context.Context, p *Policy) error {
+	engine := sourcepolicy.NewEngine([]*spb.Policy{p})
+	for _, rule := range p.Rules {
+		op := &pb.SourceOp{
+			Identifier: rule.Selector.Identifier,
+		}
+		if _, err := engine.Evaluate(ctx, op); err != nil {
+			return err
+		}
+	}
+	return nil
 }

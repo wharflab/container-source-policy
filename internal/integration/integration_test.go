@@ -1,11 +1,11 @@
 package integration
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/gkampitakis/go-snaps/snaps"
@@ -79,15 +79,21 @@ func TestPin(t *testing.T) {
 		name           string
 		dir            string
 		expectedImages []string // image paths that should be fetched from mock registry
+		requiresNet    bool     // skip in short mode if true
 	}{
-		{"simple", "simple", []string{"library/alpine/manifests/3.18"}},
-		{"multistage", "multistage", []string{"library/golang/manifests/1.21", "library/alpine/manifests/3.18"}},
-		{"ghcr", "ghcr", []string{"actions/actions-runner/manifests/latest"}},
-		{"scratch", "scratch", []string{"library/golang/manifests/1.21"}},
+		{"simple", "simple", []string{"library/alpine/manifests/3.18"}, false},
+		{"multistage", "multistage", []string{"library/golang/manifests/1.21", "library/alpine/manifests/3.18"}, false},
+		{"ghcr", "ghcr", []string{"actions/actions-runner/manifests/latest"}, false},
+		{"scratch", "scratch", []string{"library/golang/manifests/1.21"}, false},
+		{"http-add", "http-add", []string{"library/alpine/manifests/3.18"}, true}, // hits real GitHub URL
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			if tc.requiresNet && testing.Short() {
+				t.Skip("skipping test requiring network in short mode")
+			}
+
 			// Reset request tracking before each test
 			mockRegistry.ResetRequests()
 
@@ -114,88 +120,21 @@ func TestPin(t *testing.T) {
 				t.Errorf("expected %d manifest requests, got %d.\nRequests: %v", len(tc.expectedImages), manifestRequests, mockRegistry.Requests())
 			}
 
-			snaps.MatchSnapshot(t, string(output))
+			// Validate the policy using BuildKit's sourcepolicy types
+			var pol policy.Policy
+			if err := json.Unmarshal(output, &pol); err != nil {
+				t.Fatalf("failed to parse policy output: %v", err)
+			}
+			if err := policy.Validate(&pol); err != nil {
+				t.Fatalf("policy validation failed: %v", err)
+			}
+			// Deeper validation: run rules through BuildKit's sourcepolicy engine
+			if err := policy.ValidateWithEvaluate(context.Background(), &pol); err != nil {
+				t.Fatalf("policy engine evaluation failed: %v", err)
+			}
+
+			snaps.WithConfig(snaps.Ext(".json")).MatchStandaloneSnapshot(t, string(output))
 		})
-	}
-}
-
-// TestPinHTTPSources tests HTTP source policy generation with a mock HTTP server
-func TestPinHTTPSources(t *testing.T) {
-	// Create mock HTTP server
-	mockHTTP := testutil.NewMockHTTPServer()
-	defer mockHTTP.Close()
-
-	// Add a test file to the mock server with deterministic content
-	testContent := "This is test content for HTTP source policy testing.\n"
-	expectedChecksum := mockHTTP.AddFile("/test/file.txt", testContent)
-
-	// Create a temporary Dockerfile that uses the mock server URL
-	tmpDir, err := os.MkdirTemp("", "http-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = os.RemoveAll(tmpDir) }()
-
-	dockerfilePath := filepath.Join(tmpDir, "Dockerfile")
-	dockerfileContent := `FROM alpine:3.18
-ADD ` + mockHTTP.URL() + `/test/file.txt /app/file.txt
-`
-	if err := os.WriteFile(dockerfilePath, []byte(dockerfileContent), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	// Reset request tracking
-	mockRegistry.ResetRequests()
-	mockHTTP.ResetRequests()
-
-	// Run the pin command
-	cmd := exec.Command(binaryPath, "pin", "--stdout", dockerfilePath)
-	cmd.Env = append(os.Environ(), "CONTAINERS_REGISTRIES_CONF="+registryConf)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("command failed: %v\noutput: %s", err, output)
-	}
-
-	// Verify mock HTTP server was hit
-	if !mockHTTP.HasRequest("/test/file.txt") {
-		t.Errorf("expected mock HTTP server to be hit for /test/file.txt, but it wasn't.\nRequests: %v", mockHTTP.Requests())
-	}
-
-	// Parse the output and verify it contains the HTTP checksum rule
-	var pol policy.Policy
-	if err := json.Unmarshal(output, &pol); err != nil {
-		t.Fatalf("failed to parse policy output: %v\noutput: %s", err, output)
-	}
-
-	// Should have 2 rules: one for alpine:3.18, one for HTTP source
-	if len(pol.Rules) != 2 {
-		t.Errorf("expected 2 rules, got %d", len(pol.Rules))
-	}
-
-	// Find the HTTP rule
-	var httpRule *policy.Rule
-	for i := range pol.Rules {
-		if strings.Contains(pol.Rules[i].Selector.Identifier, mockHTTP.URL()) {
-			httpRule = &pol.Rules[i]
-			break
-		}
-	}
-
-	if httpRule == nil {
-		t.Fatal("HTTP rule not found in policy output")
-	}
-
-	// Verify the HTTP rule
-	if httpRule.Action != policy.PolicyActionConvert {
-		t.Errorf("expected action CONVERT, got %s", httpRule.Action)
-	}
-
-	if httpRule.Updates == nil || httpRule.Updates.Attrs == nil {
-		t.Fatal("HTTP rule missing updates.attrs")
-	}
-
-	if httpRule.Updates.Attrs["http.checksum"] != expectedChecksum {
-		t.Errorf("expected checksum %s, got %s", expectedChecksum, httpRule.Updates.Attrs["http.checksum"])
 	}
 }
 
@@ -244,6 +183,15 @@ ADD --checksum=sha256:0000000000000000000000000000000000000000000000000000000000
 	var pol policy.Policy
 	if err := json.Unmarshal(output, &pol); err != nil {
 		t.Fatalf("failed to parse policy output: %v\noutput: %s", err, output)
+	}
+
+	// Validate the policy using BuildKit's sourcepolicy types
+	if err := policy.Validate(&pol); err != nil {
+		t.Fatalf("policy validation failed: %v", err)
+	}
+	// Deeper validation: run rules through BuildKit's sourcepolicy engine
+	if err := policy.ValidateWithEvaluate(context.Background(), &pol); err != nil {
+		t.Fatalf("policy engine evaluation failed: %v", err)
 	}
 
 	// Should have only 1 rule (for alpine:3.18)

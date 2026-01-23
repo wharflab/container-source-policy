@@ -66,7 +66,7 @@ func GeneratePolicy(ctx context.Context, opts Options) (*policy.Policy, error) {
 			}
 
 			// Add the pin rule
-			pol.AddPinRule(ref.Original, pinnedRef.String())
+			policy.AddPinRule(pol, ref.Original, pinnedRef.String())
 		}
 
 		// Process HTTP sources (ADD instructions without checksum)
@@ -84,7 +84,7 @@ func GeneratePolicy(ctx context.Context, opts Options) (*policy.Policy, error) {
 			}
 
 			// Add the HTTP checksum rule
-			pol.AddHTTPChecksumRule(httpRef.URL, checksum)
+			policy.AddHTTPChecksumRule(pol, httpRef.URL, checksum)
 		}
 	}
 

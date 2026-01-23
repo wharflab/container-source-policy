@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "action": "CONVERT",
+      "selector": {
+        "identifier": "docker-image://alpine:3.18",
+        "match_type": "EXACT"
+      },
+      "updates": {
+        "identifier": "docker-image://docker.io/library/alpine:3.18@sha256:dca69b6823d2cff137b073f278d243679fccbbe39b939dbff7747587013cc3b7"
+      }
+    },
+    {
+      "action": "CONVERT",
+      "selector": {
+        "identifier": "https://github.com/cli/cli/releases/download/v2.85.0/gh_2.85.0_checksums.txt",
+        "match_type": "EXACT"
+      },
+      "updates": {
+        "attrs": {
+          "http.checksum": "sha256:0648ada2d7670b150066d0947445db34dbf9d7ecbe0c535d8f9f4df0a752c948"
+        }
+      }
+    }
+  ]
+}

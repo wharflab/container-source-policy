@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "action": "CONVERT",
+      "selector": {
+        "identifier": "docker-image://golang:1.21",
+        "match_type": "EXACT"
+      },
+      "updates": {
+        "identifier": "docker-image://docker.io/library/golang:1.21@sha256:96e077c89b19c49293d08095895f67d9ddbbf5ceb6afa82c0b043ae78911d962"
+      }
+    }
+  ]
+}
