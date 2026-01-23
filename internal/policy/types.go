@@ -5,6 +5,7 @@ package policy
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/moby/buildkit/solver/pb"
 	"github.com/moby/buildkit/sourcepolicy"
@@ -96,8 +97,14 @@ func Validate(p *Policy) error {
 // be evaluated against source operations, providing runtime validation beyond
 // structural correctness.
 func ValidateWithEvaluate(ctx context.Context, p *Policy) error {
+	if p == nil {
+		return fmt.Errorf("policy is nil")
+	}
 	engine := sourcepolicy.NewEngine([]*spb.Policy{p})
-	for _, rule := range p.Rules {
+	for i, rule := range p.Rules {
+		if rule == nil || rule.Selector == nil {
+			return fmt.Errorf("rule %d has nil selector", i)
+		}
 		op := &pb.SourceOp{
 			Identifier: rule.Selector.Identifier,
 		}
