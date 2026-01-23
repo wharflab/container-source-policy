@@ -82,7 +82,8 @@ func (c *Client) GetCommitChecksum(ctx context.Context, rawURL string) (string, 
 
 	// Use git ls-remote to get the commit SHA
 	// This works for branches and tags without cloning
-	cmd := exec.CommandContext(ctx, "git", "ls-remote", gitRef.Remote, gitRef.Ref)
+	// Request both the ref and its dereferenced form (for annotated tags)
+	cmd := exec.CommandContext(ctx, "git", "ls-remote", gitRef.Remote, gitRef.Ref, gitRef.Ref+"^{}")
 
 	// Set environment to prevent interactive prompts and ensure consistent behavior
 	// This matches BuildKit's approach in util/gitutil/git_cli.go
@@ -108,13 +109,28 @@ func (c *Client) GetCommitChecksum(ctx context.Context, rawURL string) (string, 
 		return "", fmt.Errorf("no commit found for ref %s", gitRef.Ref)
 	}
 
-	// Take the first line and extract the SHA
-	fields := strings.Fields(lines[0])
-	if len(fields) < 1 {
+	// Prefer annotated-tag deref (^{}) if present; otherwise use first entry.
+	// For annotated tags, git ls-remote returns both the tag object and the commit:
+	//   abc123def  refs/tags/v1.0.0
+	//   54d56cab   refs/tags/v1.0.0^{}  ← actual commit (preferred)
+	commitSHA := ""
+	for _, line := range lines {
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		sha, refName := fields[0], fields[1]
+		if strings.HasSuffix(refName, "^{}") {
+			commitSHA = sha
+			break
+		}
+		if commitSHA == "" {
+			commitSHA = sha
+		}
+	}
+	if commitSHA == "" {
 		return "", fmt.Errorf("unexpected git ls-remote output format")
 	}
-
-	commitSHA := fields[0]
 	if len(commitSHA) != 40 {
 		return "", fmt.Errorf("invalid commit SHA length: %d", len(commitSHA))
 	}
