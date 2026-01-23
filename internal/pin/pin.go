@@ -81,8 +81,8 @@ func GeneratePolicy(ctx context.Context, opts Options) (*policy.Policy, error) {
 			}
 			seenHTTP[httpRef.URL] = true
 
-			// Get the checksum for the HTTP resource
-			checksum, err := httpClient.GetChecksum(ctx, httpRef.URL)
+			// Get the checksum and headers for the HTTP resource
+			result, err := httpClient.GetChecksumWithHeaders(ctx, httpRef.URL)
 			if err != nil {
 				// Skip resources that require authentication instead of failing
 				if httpclient.IsAuthError(err) {
@@ -92,8 +92,8 @@ func GeneratePolicy(ctx context.Context, opts Options) (*policy.Policy, error) {
 				return nil, fmt.Errorf("failed to get checksum for %s: %w", httpRef.URL, err)
 			}
 
-			// Add the HTTP checksum rule
-			policy.AddHTTPChecksumRule(pol, httpRef.URL, checksum)
+			// Add the HTTP checksum rule with headers from Vary response
+			policy.AddHTTPChecksumRuleWithHeaders(pol, httpRef.URL, result.Checksum, result.Headers)
 		}
 
 		// Process Git sources (ADD instructions with git URLs)

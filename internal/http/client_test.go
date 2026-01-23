@@ -410,3 +410,173 @@ func TestGetChecksum_Fallback(t *testing.T) {
 		t.Errorf("GetChecksum() = %v, want %v", checksum, expectedChecksum)
 	}
 }
+
+// TestGetChecksumWithHeaders_VaryHeader tests that the Vary header is properly handled
+// and relevant request headers are extracted and returned
+func TestGetChecksumWithHeaders_VaryHeader(t *testing.T) {
+	content := []byte("test content")
+	hash := sha256.New()
+	hash.Write(content)
+	expectedChecksum := "sha256:" + hex.EncodeToString(hash.Sum(nil))
+
+	tests := []struct {
+		name                 string
+		varyHeader           string
+		expectedHeadersCount int
+		checkUserAgent       bool // whether to verify user-agent header is present
+	}{
+		{
+			name:                 "Vary: User-Agent",
+			varyHeader:           "User-Agent",
+			expectedHeadersCount: 1,
+			checkUserAgent:       true,
+		},
+		{
+			name:                 "Vary: User-Agent, Accept-Encoding",
+			varyHeader:           "User-Agent, Accept-Encoding",
+			expectedHeadersCount: 1, // Only User-Agent is in request, Accept-Encoding is not
+			checkUserAgent:       true,
+		},
+		{
+			name:                 "Vary: * (unpredictable)",
+			varyHeader:           "*",
+			expectedHeadersCount: 0,
+			checkUserAgent:       false,
+		},
+		{
+			name:                 "No Vary header",
+			varyHeader:           "",
+			expectedHeadersCount: 0,
+			checkUserAgent:       false,
+		},
+		{
+			name:                 "Vary: Non-existent-Header (not in request)",
+			varyHeader:           "Non-Existent-Header",
+			expectedHeadersCount: 0,
+			checkUserAgent:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if tt.varyHeader != "" {
+					w.Header().Set("Vary", tt.varyHeader)
+				}
+				if r.Method == http.MethodHead {
+					// Return ETag for checksum
+					w.Header().Set("ETag", `"`+hex.EncodeToString(hash.Sum(nil))+`"`)
+					w.WriteHeader(http.StatusOK)
+					return
+				}
+				// GET request
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write(content)
+			}))
+			defer server.Close()
+
+			client := NewClient()
+			result, err := client.GetChecksumWithHeaders(context.Background(), server.URL)
+			if err != nil {
+				t.Fatalf("GetChecksumWithHeaders() error = %v", err)
+			}
+
+			if result.Checksum != expectedChecksum {
+				t.Errorf("GetChecksumWithHeaders() checksum = %v, want %v", result.Checksum, expectedChecksum)
+			}
+
+			// Check headers count
+			if len(result.Headers) != tt.expectedHeadersCount {
+				t.Errorf("GetChecksumWithHeaders() headers count = %d, want %d (headers: %v)", len(result.Headers), tt.expectedHeadersCount, result.Headers)
+			}
+
+			// Check user-agent header if expected
+			if tt.checkUserAgent {
+				if _, ok := result.Headers["user-agent"]; !ok {
+					t.Errorf("GetChecksumWithHeaders() missing user-agent header")
+				}
+			}
+		})
+	}
+}
+
+// TestExtractVaryHeaders tests the extractVaryHeaders function directly
+func TestExtractVaryHeaders(t *testing.T) {
+	tests := []struct {
+		name           string
+		reqHeaders     http.Header
+		respHeaders    http.Header
+		expectedResult map[string]string
+	}{
+		{
+			name: "Single header in Vary",
+			reqHeaders: http.Header{
+				"User-Agent": []string{"test-agent"},
+			},
+			respHeaders: http.Header{
+				"Vary": []string{"User-Agent"},
+			},
+			expectedResult: map[string]string{
+				"user-agent": "test-agent",
+			},
+		},
+		{
+			name: "Multiple headers in Vary",
+			reqHeaders: http.Header{
+				"User-Agent":      []string{"test-agent"},
+				"Accept-Encoding": []string{"gzip, deflate"},
+			},
+			respHeaders: http.Header{
+				"Vary": []string{"User-Agent, Accept-Encoding"},
+			},
+			expectedResult: map[string]string{
+				"user-agent":      "test-agent",
+				"accept-encoding": "gzip, deflate",
+			},
+		},
+		{
+			name: "Vary: * returns empty",
+			reqHeaders: http.Header{
+				"User-Agent": []string{"test-agent"},
+			},
+			respHeaders: http.Header{
+				"Vary": []string{"*"},
+			},
+			expectedResult: map[string]string{},
+		},
+		{
+			name: "No Vary header",
+			reqHeaders: http.Header{
+				"User-Agent": []string{"test-agent"},
+			},
+			respHeaders:    http.Header{},
+			expectedResult: map[string]string{},
+		},
+		{
+			name:       "Header in Vary but not in request",
+			reqHeaders: http.Header{},
+			respHeaders: http.Header{
+				"Vary": []string{"User-Agent"},
+			},
+			expectedResult: map[string]string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractVaryHeaders(tt.reqHeaders, tt.respHeaders)
+
+			if len(result) != len(tt.expectedResult) {
+				t.Errorf("extractVaryHeaders() returned %d headers, want %d", len(result), len(tt.expectedResult))
+			}
+
+			for key, expectedValue := range tt.expectedResult {
+				if actualValue, ok := result[key]; !ok {
+					t.Errorf("extractVaryHeaders() missing header %q", key)
+				} else if actualValue != expectedValue {
+					t.Errorf("extractVaryHeaders() header %q = %q, want %q", key, actualValue, expectedValue)
+				}
+			}
+		})
+	}
+}

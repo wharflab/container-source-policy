@@ -65,6 +65,32 @@ func AddPinRule(p *Policy, originalRef, pinnedRef string) {
 // AddHTTPChecksumRule adds a rule that pins an HTTP/HTTPS source to a specific checksum
 // The checksum should be in the format "sha256:..." or similar digest format
 func AddHTTPChecksumRule(p *Policy, url, checksum string) {
+	AddHTTPChecksumRuleWithHeaders(p, url, checksum, nil)
+}
+
+// AddHTTPChecksumRuleWithHeaders adds a rule that pins an HTTP/HTTPS source to a specific checksum
+// and optionally includes HTTP headers in the source policy.
+//
+// Headers are stored with the "http.header." prefix as defined by BuildKit's AttrHTTPHeaderPrefix.
+// This is important for resources that vary by request headers (indicated by the Vary response header).
+//
+// Example: If a resource varies by Accept-Encoding, the headers map should contain:
+//
+//	{"accept-encoding": "gzip, deflate"}
+//
+// This will be stored in the policy as "http.header.accept-encoding" attribute.
+func AddHTTPChecksumRuleWithHeaders(p *Policy, url, checksum string, headers map[string]string) {
+	attrs := map[string]string{
+		"http.checksum": checksum,
+	}
+
+	// Add HTTP headers with the "http.header." prefix
+	// BuildKit uses AttrHTTPHeaderPrefix = "http.header." for storing HTTP headers
+	for name, value := range headers {
+		// Header names are already lowercase from extractVaryHeaders
+		attrs["http.header."+name] = value
+	}
+
 	rule := &Rule{
 		Action: PolicyActionConvert,
 		Selector: &Selector{
@@ -72,9 +98,7 @@ func AddHTTPChecksumRule(p *Policy, url, checksum string) {
 			MatchType:  MatchTypeExact,
 		},
 		Updates: &Update{
-			Attrs: map[string]string{
-				"http.checksum": checksum,
-			},
+			Attrs: attrs,
 		},
 	}
 	p.Rules = append(p.Rules, rule)

@@ -106,6 +106,7 @@ container-source-policy completion zsh
   - URLs containing unexpanded variables (`${VAR}`, `$VAR`)
   - Git URLs (handled separately, see below)
 - Fetches the checksum and emits `CONVERT` rules with `http.checksum` attribute.
+- **Respects `Vary` header**: captures request headers that affect response content (e.g., `User-Agent`, `Accept-Encoding`) and includes them in the policy as `http.header.*` attributes to ensure reproducible builds.
 
 **Optimized checksum fetching** — avoids downloading large files when possible:
 - `raw.githubusercontent.com`: extracts SHA256 from ETag header
