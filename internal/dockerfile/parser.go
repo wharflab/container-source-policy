@@ -33,12 +33,23 @@ type HTTPSourceRef struct {
 	Line int
 }
 
+// GitSourceRef represents a Git source reference extracted from a Dockerfile ADD instruction.
+// BuildKit supports git URLs in ADD instructions for fetching repositories during build.
+type GitSourceRef struct {
+	// URL is the Git URL as it appears in the Dockerfile (e.g., https://github.com/owner/repo.git#ref)
+	URL string
+	// Line is the line number in the Dockerfile where this reference appears
+	Line int
+}
+
 // ParseResult contains all extracted references from a Dockerfile
 type ParseResult struct {
 	// Images contains all container image references (FROM instructions)
 	Images []ImageRef
 	// HTTPSources contains all HTTP/HTTPS source references (ADD instructions without checksum)
 	HTTPSources []HTTPSourceRef
+	// GitSources contains all Git source references (ADD instructions)
+	GitSources []GitSourceRef
 }
 
 // openDockerfile opens a Dockerfile path for reading.
@@ -100,6 +111,7 @@ func ParseAll(ctx context.Context, r io.Reader) (*ParseResult, error) {
 	parseResult := &ParseResult{
 		Images:      []ImageRef{},
 		HTTPSources: []HTTPSourceRef{},
+		GitSources:  []GitSourceRef{},
 	}
 
 	// Track stage names for detecting multi-stage references
@@ -116,11 +128,12 @@ func ParseAll(ctx context.Context, r io.Reader) (*ParseResult, error) {
 			stageNames[strings.ToLower(stage.Name)] = true
 		}
 
-		// Extract HTTP sources from ADD commands in this stage
+		// Extract HTTP and Git sources from ADD commands in this stage
 		for _, cmd := range stage.Commands {
 			if addCmd, ok := cmd.(*instructions.AddCommand); ok {
-				httpRefs := extractHTTPSources(addCmd)
+				httpRefs, gitRefs := extractAddSources(addCmd)
 				parseResult.HTTPSources = append(parseResult.HTTPSources, httpRefs...)
+				parseResult.GitSources = append(parseResult.GitSources, gitRefs...)
 			}
 		}
 	}
@@ -172,14 +185,15 @@ func extractImageRef(stage instructions.Stage, stageNames map[string]bool) *Imag
 	}
 }
 
-// extractHTTPSources extracts HTTP/HTTPS URLs from an ADD command
-func extractHTTPSources(addCmd *instructions.AddCommand) []HTTPSourceRef {
+// extractAddSources extracts HTTP/HTTPS and Git URLs from an ADD command
+func extractAddSources(addCmd *instructions.AddCommand) ([]HTTPSourceRef, []GitSourceRef) {
 	// If checksum is already specified, skip this ADD
 	if addCmd.Checksum != "" {
-		return nil
+		return nil, nil
 	}
 
-	var refs []HTTPSourceRef
+	var httpRefs []HTTPSourceRef
+	var gitRefs []GitSourceRef
 	line := 0
 	if locs := addCmd.Location(); len(locs) > 0 {
 		line = locs[0].Start.Line
@@ -191,16 +205,22 @@ func extractHTTPSources(addCmd *instructions.AddCommand) []HTTPSourceRef {
 			continue
 		}
 
-		// Only include HTTP/HTTPS URLs
-		if isHTTPURL(src) {
-			refs = append(refs, HTTPSourceRef{
+		if isGitURL(src) {
+			// Git URLs
+			gitRefs = append(gitRefs, GitSourceRef{
+				URL:  src,
+				Line: line,
+			})
+		} else if isHTTPURL(src) {
+			// HTTP/HTTPS URLs (non-git)
+			httpRefs = append(httpRefs, HTTPSourceRef{
 				URL:  src,
 				Line: line,
 			})
 		}
 	}
 
-	return refs
+	return httpRefs, gitRefs
 }
 
 // containsVariable checks if the string contains unexpanded ARG/ENV syntax
@@ -222,7 +242,40 @@ func containsVariable(s string) bool {
 	return false
 }
 
-// isHTTPURL checks if a string is an HTTP or HTTPS URL
+// isGitURL checks if a string is a Git URL
+// Git URLs can be:
+// - URLs ending with .git (https://github.com/owner/repo.git)
+// - git:// protocol URLs
+// - ssh:// protocol URLs with git@
+// - git@ prefix (git@github.com:owner/repo)
+func isGitURL(s string) bool {
+	// Check for git@ prefix (SSH format without scheme)
+	if strings.HasPrefix(s, "git@") {
+		return true
+	}
+
+	// Try parsing as URL
+	u, err := url.Parse(s)
+	if err != nil {
+		return false
+	}
+
+	scheme := strings.ToLower(u.Scheme)
+
+	// Check git:// or ssh:// protocols
+	if scheme == "git" || scheme == "ssh" {
+		return true
+	}
+
+	// Check for .git suffix on http/https URLs
+	if (scheme == "http" || scheme == "https") && strings.HasSuffix(strings.TrimSuffix(u.Path, "/"), ".git") {
+		return true
+	}
+
+	return false
+}
+
+// isHTTPURL checks if a string is an HTTP or HTTPS URL (non-git)
 func isHTTPURL(s string) bool {
 	u, err := url.Parse(s)
 	if err != nil {
