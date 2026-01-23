@@ -204,9 +204,12 @@ func (c *Client) getChecksumFromGitHubRelease(ctx context.Context, parsedURL *ur
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	// Handle authentication errors for private releases
-	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusNotFound {
-		// GitHub returns 404 for private repos/releases without auth
+	// Handle authentication errors
+	// Note: 404 is NOT treated as auth error because GitHub returns 404 for both:
+	// - Private repos/releases without auth (hiding existence)
+	// - Genuinely missing tags/assets on public repos
+	// We can't distinguish these cases, so treat 404 as a real "not found" error
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
 		return "", &AuthError{URL: parsedURL.String(), StatusCode: resp.StatusCode}
 	}
 
