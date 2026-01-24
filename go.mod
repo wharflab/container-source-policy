@@ -4,12 +4,13 @@ go 1.25.6
 
 require (
 	github.com/containers/image/v5 v5.36.2
+	github.com/dustin/go-humanize v1.0.1
 	github.com/gkampitakis/go-snaps v0.5.19
 	github.com/google/go-containerregistry v0.20.7
 	github.com/moby/buildkit v0.27.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/pquerna/cachecontrol v0.2.0
-	github.com/spf13/cobra v1.10.2
+	github.com/urfave/cli/v3 v3.6.2
 	github.com/vbauerster/mpb/v8 v8.11.3
 	golang.org/x/sync v0.19.0
 	golang.org/x/term v0.39.0
@@ -35,12 +36,10 @@ require (
 	github.com/docker/docker-credential-helpers v0.9.5 // indirect
 	github.com/docker/go-connections v0.5.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
-	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/gkampitakis/ciinfo v0.3.2 // indirect
 	github.com/goccy/go-yaml v1.18.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
-	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/klauspost/compress v1.18.2 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
@@ -58,7 +57,6 @@ require (
 	github.com/rogpeppe/go-internal v1.13.1 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
-	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect

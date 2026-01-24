@@ -1,7 +1,7 @@
 .PHONY: build test lint lint-fix clean release publish-prepare publish-npm publish-pypi publish-gem publish
 
 build:
-	go build -ldflags "-s -w" -o container-source-policy
+	CGO_ENABLED=0 go build -ldflags "-s -w" -o container-source-policy
 
 test:
 	go test -race -count=1 -timeout=30s ./...

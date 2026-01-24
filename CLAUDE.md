@@ -14,9 +14,11 @@ Source policies are passed to `docker buildx build` via the `EXPERIMENTAL_BUILDK
 - `github.com/containers/image/v5/docker/reference` - Image reference parsing and normalization
 - `github.com/containers/image/v5/docker` - Registry interaction
 - `github.com/containers/image/v5/manifest` - Manifest digest computation
-- `github.com/spf13/cobra` - CLI framework
+- `github.com/urfave/cli/v3` - CLI framework
 
 Do not re-implement functionality that exists in these libraries.
+
+**Adding dependencies** - Before adding a new dependency, run `go list -m -versions <module>` to check available versions and use the latest stable release.
 
 ## Build & Test Commands
 
@@ -47,7 +49,7 @@ go run . pin --stdout Dockerfile
 ```
 .
 ├── main.go                           # Entry point
-├── cmd/container-source-policy/cmd/  # CLI commands (cobra)
+├── cmd/container-source-policy/cmd/  # CLI commands (urfave/cli)
 │   ├── root.go                       # Root command setup
 │   ├── pin.go                        # Pin subcommand
 │   └── version.go                    # Version subcommand

@@ -1,24 +1,23 @@
 package cmd
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 
-	"github.com/spf13/cobra"
+	"github.com/urfave/cli/v3"
 
 	"github.com/tinovyatkin/container-source-policy/internal/pin"
 )
 
-var (
-	outputFile string
-	useStdout  bool
-)
-
-var pinCmd = &cobra.Command{
-	Use:   "pin [DOCKERFILE...]",
-	Short: "Generate a source policy file with pinned image digests",
-	Long: `Parse Dockerfile(s) to extract image references (FROM instructions)
+func pinCommand() *cli.Command {
+	return &cli.Command{
+		Name:      "pin",
+		Usage:     "Generate a source policy file with pinned image digests",
+		ArgsUsage: "[DOCKERFILE...]",
+		Description: `Parse Dockerfile(s) to extract image references (FROM instructions)
 and generate a BuildKit source policy file that pins each image to its
 current digest.
 
@@ -26,41 +25,53 @@ Example:
   container-source-policy pin --output policy.json Dockerfile
   container-source-policy pin --stdout Dockerfile.* > policy.json
   cat Dockerfile | container-source-policy pin --stdout -`,
-	Args: cobra.MinimumNArgs(1),
-	RunE: runPin,
-}
+		MutuallyExclusiveFlags: []cli.MutuallyExclusiveFlags{{
+			Flags: [][]cli.Flag{
+				{&cli.StringFlag{
+					Name:    "output",
+					Aliases: []string{"o"},
+					Usage:   "Output file path for the policy JSON",
+				}},
+				{&cli.BoolFlag{
+					Name:  "stdout",
+					Usage: "Write policy to stdout instead of file",
+				}},
+			},
+		}},
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			if cmd.NArg() < 1 {
+				return errors.New("at least one Dockerfile path is required")
+			}
 
-func init() {
-	pinCmd.Flags().StringVarP(&outputFile, "output", "o", "", "Output file path for the policy JSON")
-	pinCmd.Flags().BoolVar(&useStdout, "stdout", false, "Write policy to stdout instead of file")
-	pinCmd.MarkFlagsMutuallyExclusive("output", "stdout")
-}
+			opts := pin.Options{
+				Dockerfiles: cmd.Args().Slice(),
+			}
 
-func runPin(cmd *cobra.Command, args []string) error {
-	opts := pin.Options{
-		Dockerfiles: args,
+			policy, err := pin.GeneratePolicy(ctx, opts)
+			if err != nil {
+				return fmt.Errorf("failed to generate policy: %w", err)
+			}
+
+			outputFile := cmd.String("output")
+			useStdout := cmd.Bool("stdout")
+
+			var w io.Writer
+			if useStdout || outputFile == "" {
+				w = os.Stdout
+			} else {
+				f, err := os.Create(outputFile)
+				if err != nil {
+					return fmt.Errorf("failed to create output file: %w", err)
+				}
+				defer func() { _ = f.Close() }()
+				w = f
+			}
+
+			if err := pin.WritePolicy(w, policy); err != nil {
+				return fmt.Errorf("failed to write policy: %w", err)
+			}
+
+			return nil
+		},
 	}
-
-	policy, err := pin.GeneratePolicy(cmd.Context(), opts)
-	if err != nil {
-		return fmt.Errorf("failed to generate policy: %w", err)
-	}
-
-	var w io.Writer
-	if useStdout || outputFile == "" {
-		w = os.Stdout
-	} else {
-		f, err := os.Create(outputFile)
-		if err != nil {
-			return fmt.Errorf("failed to create output file: %w", err)
-		}
-		defer func() { _ = f.Close() }()
-		w = f
-	}
-
-	if err := pin.WritePolicy(w, policy); err != nil {
-		return fmt.Errorf("failed to write policy: %w", err)
-	}
-
-	return nil
 }

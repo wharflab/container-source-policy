@@ -79,12 +79,6 @@ Or use `buildctl` directly with the `--source-policy-file` flag:
 buildctl build --frontend dockerfile.v0 --local dockerfile=. --local context=. --source-policy-file source-policy.json
 ```
 
-Shell completion scripts are available via Cobra:
-
-```bash
-container-source-policy completion zsh
-```
-
 ## What gets pinned
 
 ### Container images (`FROM`, `COPY --from`, `ONBUILD`)
@@ -146,7 +140,7 @@ UPDATE_SNAPS=true go test ./internal/integration/...
 
 ## Repository layout
 
-- `cmd/container-source-policy/cmd/`: Cobra CLI commands
+- `cmd/container-source-policy/cmd/`: CLI commands (urfave/cli)
 - `internal/dockerfile`: Dockerfile parsing (`FROM` and `ADD` extraction)
 - `internal/registry`: registry client (image digest resolution)
 - `internal/http`: HTTP client (URL checksum fetching with optimizations)

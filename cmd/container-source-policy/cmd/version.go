@@ -1,17 +1,21 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/spf13/cobra"
+	"github.com/urfave/cli/v3"
 
 	"github.com/tinovyatkin/container-source-policy/internal/version"
 )
 
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print the version information",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("container-source-policy %s\n", version.Version())
-	},
+func versionCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "version",
+		Usage: "Print the version information",
+		Action: func(_ context.Context, _ *cli.Command) error {
+			fmt.Printf("container-source-policy %s\n", version.Version())
+			return nil
+		},
+	}
 }

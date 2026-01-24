@@ -1,13 +1,21 @@
 package cmd
 
 import (
-	"github.com/spf13/cobra"
+	"context"
+	"os"
+
+	"github.com/urfave/cli/v3"
+
+	"github.com/tinovyatkin/container-source-policy/internal/version"
 )
 
-var rootCmd = &cobra.Command{
-	Use:   "container-source-policy",
-	Short: "CLI for generating Docker BuildKit source policy files",
-	Long: `container-source-policy is a CLI utility for generating and managing
+// NewApp creates the CLI application
+func NewApp() *cli.Command {
+	return &cli.Command{
+		Name:    "container-source-policy",
+		Usage:   "CLI for generating Docker BuildKit source policy files",
+		Version: version.Version(),
+		Description: `container-source-policy is a CLI utility for generating and managing
 Docker container source policy files.
 
 It parses Dockerfiles to extract image references and generates policy files
@@ -18,14 +26,14 @@ Usage with docker buildx:
 
 Usage with buildctl:
   buildctl build --source-policy-file policy.json ...`,
+		Commands: []*cli.Command{
+			pinCommand(),
+			versionCommand(),
+		},
+	}
 }
 
-// Execute runs the root command
+// Execute runs the CLI application
 func Execute() error {
-	return rootCmd.Execute()
-}
-
-func init() {
-	rootCmd.AddCommand(pinCmd)
-	rootCmd.AddCommand(versionCmd)
+	return NewApp().Run(context.Background(), os.Args)
 }
