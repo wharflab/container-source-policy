@@ -406,6 +406,9 @@ func WritePolicy(w io.Writer, pol *policy.Policy) error {
 
 // truncateLeft truncates a string from the left if it exceeds maxLen
 func truncateLeft(s string, maxLen int) string {
+	if maxLen <= 0 {
+		return ""
+	}
 	if len(s) <= maxLen {
 		return s
 	}
