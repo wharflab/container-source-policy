@@ -64,9 +64,15 @@ type ChecksumResult struct {
 	Headers map[string]string
 }
 
+// ProgressWriterFactory creates a progress writer for a download
+// contentLength is the total size in bytes (-1 if unknown)
+// The returned writer receives all downloaded bytes
+type ProgressWriterFactory func(contentLength int64) io.Writer
+
 // Client handles HTTP checksum operations
 type Client struct {
-	httpClient *http.Client
+	httpClient      *http.Client
+	progressFactory ProgressWriterFactory
 }
 
 // NewClient creates a new HTTP client
@@ -75,6 +81,15 @@ func NewClient() *Client {
 		httpClient: &http.Client{
 			Timeout: 5 * time.Minute, // Allow time for large file downloads
 		},
+	}
+}
+
+// WithProgressFactory returns a copy of the client with progress reporting enabled
+// The factory is called when a download starts, receiving the content length
+func (c *Client) WithProgressFactory(factory ProgressWriterFactory) *Client {
+	return &Client{
+		httpClient:      c.httpClient,
+		progressFactory: factory,
 	}
 }
 
@@ -330,7 +345,15 @@ func (c *Client) computeChecksumWithHeaders(ctx context.Context, rawURL string) 
 	}
 
 	hash := sha256.New()
-	n, err := io.Copy(hash, resp.Body)
+
+	// Create writer chain: hash the content, optionally report progress
+	var dst io.Writer = hash
+	if c.progressFactory != nil {
+		progressWriter := c.progressFactory(resp.ContentLength)
+		dst = io.MultiWriter(hash, progressWriter)
+	}
+
+	n, err := io.Copy(dst, resp.Body)
 	// Validate Content-Length if provided (-1 means not present, e.g., chunked encoding)
 	// A mismatch indicates server misconfiguration or network issues - we shouldn't trust such sources for pinning
 	if resp.ContentLength >= 0 && n != resp.ContentLength {
