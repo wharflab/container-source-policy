@@ -19,6 +19,7 @@ coverage.*
 profile.cov
 covcounters.*
 covmeta.*
+junit*.xml
 
 # Dependency directories (remove the comment below to include it)
 # vendor/

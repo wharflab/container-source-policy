@@ -70,6 +70,20 @@ go tool cover -html=coverage.txt -o=coverage.html
 go tool covdata percent -i=coverage -pkg=github.com/tinovyatkin/container-source-policy/internal/pin
 ```
 
+## Test Results Reporting
+
+CI automatically generates JUnit XML test results and uploads them to Codecov for test analytics and flake detection.
+
+```bash
+# Install go-junit-report
+go install github.com/jstemmer/go-junit-report/v2@latest
+
+# Run tests with JUnit XML output
+go test ./... -v -json 2>&1 | go-junit-report -set-exit-code -iocopy -out junit.xml
+
+# CI uploads junit.xml and junit-integration.xml to Codecov
+```
+
 ## Commit Messages
 
 - Use semantic commit rules (Conventional Commits), e.g. `feat: …`, `fix: …`, `chore: …` (enforced via `commitlint` in `.lefthook.yml`).
