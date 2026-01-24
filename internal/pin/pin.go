@@ -237,12 +237,11 @@ func GeneratePolicy(ctx context.Context, opts Options) (*policy.Policy, error) {
 
 func newProgressContainer() *mpb.Progress {
 	isTTY := term.IsTerminal(int(os.Stderr.Fd()))
-	var opts []mpb.ContainerOption
-	opts = append(opts, mpb.WithOutput(os.Stderr))
-	if !isTTY {
-		opts = append(opts, mpb.WithOutput(nil))
+	var output io.Writer
+	if isTTY {
+		output = os.Stderr
 	}
-	return mpb.New(opts...)
+	return mpb.New(mpb.WithOutput(output))
 }
 
 func processImage(
