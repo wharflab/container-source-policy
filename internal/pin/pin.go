@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -301,7 +302,12 @@ func processHTTP(
 	results *resultCollector,
 ) func() error {
 	return func() error {
-		name := truncateLeft(filepath.Base(task.url), 40)
+		// Extract filename from URL path, stripping query parameters to avoid leaking secrets
+		displayName := task.url
+		if u, err := url.Parse(task.url); err == nil {
+			displayName = filepath.Base(u.Path)
+		}
+		name := truncateLeft(displayName, 40)
 		bar := progress.AddBar(
 			0,
 			mpb.PrependDecorators(
