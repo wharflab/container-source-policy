@@ -30,6 +30,7 @@ var (
 	binaryPath   string
 	mockRegistry *testutil.MockRegistry
 	registryConf string
+	coverageDir  string
 )
 
 func TestMain(m *testing.M) {
@@ -41,8 +42,31 @@ func TestMain(m *testing.M) {
 
 	binaryPath = filepath.Join(tmpDir, "container-source-policy")
 
-	// Build the module's main package
-	cmd := exec.Command("go", "build", "-o", binaryPath, "github.com/tinovyatkin/container-source-policy")
+	// Create coverage directory in project root for persistent coverage data
+	// If GOCOVERDIR is set externally, use that; otherwise use "./coverage"
+	coverageDir = os.Getenv("GOCOVERDIR")
+	if coverageDir == "" {
+		// Get absolute path to project root (2 levels up from internal/integration)
+		wd, err := os.Getwd()
+		if err != nil {
+			_ = os.RemoveAll(tmpDir)
+			panic("failed to get working directory: " + err.Error())
+		}
+		coverageDir = filepath.Join(wd, "..", "..", "coverage")
+	}
+	// Make path absolute
+	coverageDir, err = filepath.Abs(coverageDir)
+	if err != nil {
+		_ = os.RemoveAll(tmpDir)
+		panic("failed to get absolute coverage directory path: " + err.Error())
+	}
+	if err := os.MkdirAll(coverageDir, 0o750); err != nil {
+		_ = os.RemoveAll(tmpDir)
+		panic("failed to create coverage directory: " + err.Error())
+	}
+
+	// Build the module's main package with coverage instrumentation
+	cmd := exec.Command("go", "build", "-cover", "-o", binaryPath, "github.com/tinovyatkin/container-source-policy")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		_ = os.RemoveAll(tmpDir)
 		panic("failed to build binary: " + string(out))
@@ -133,7 +157,11 @@ func TestPin(t *testing.T) {
 
 			cmd := exec.Command(binaryPath, "pin", "--stdout", dockerfilePath)
 			// Set CONTAINERS_REGISTRIES_CONF to use our mock registry
-			cmd.Env = append(os.Environ(), "CONTAINERS_REGISTRIES_CONF="+registryConf)
+			// and GOCOVERDIR to collect coverage data
+			cmd.Env = append(os.Environ(),
+				"CONTAINERS_REGISTRIES_CONF="+registryConf,
+				"GOCOVERDIR="+coverageDir,
+			)
 			output, err := cmd.CombinedOutput()
 			if err != nil {
 				t.Fatalf("command failed: %v\noutput: %s", err, output)
@@ -212,7 +240,10 @@ ADD ` + mockHTTP.URL() + `/stable/file.txt /app/stable.txt
 
 	// Run the pin command - capture stderr separately to check for warning
 	cmd := exec.Command(binaryPath, "pin", "--stdout", dockerfilePath)
-	cmd.Env = append(os.Environ(), "CONTAINERS_REGISTRIES_CONF="+registryConf)
+	cmd.Env = append(os.Environ(),
+		"CONTAINERS_REGISTRIES_CONF="+registryConf,
+		"GOCOVERDIR="+coverageDir,
+	)
 	output, err := cmd.Output() // Use Output() instead of CombinedOutput() to get only stdout
 	if err != nil {
 		// Check if there's stderr output (expected warning)
@@ -312,7 +343,10 @@ ADD --checksum=sha256:0000000000000000000000000000000000000000000000000000000000
 
 	// Run the pin command
 	cmd := exec.Command(binaryPath, "pin", "--stdout", dockerfilePath)
-	cmd.Env = append(os.Environ(), "CONTAINERS_REGISTRIES_CONF="+registryConf)
+	cmd.Env = append(os.Environ(),
+		"CONTAINERS_REGISTRIES_CONF="+registryConf,
+		"GOCOVERDIR="+coverageDir,
+	)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("command failed: %v\noutput: %s", err, output)
