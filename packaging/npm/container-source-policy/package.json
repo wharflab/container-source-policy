@@ -34,7 +34,7 @@
     "container-source-policy-linux-x64": "0.2.0",
     "container-source-policy-windows-arm64": "0.2.0",
     "container-source-policy-windows-x64": "0.1.0",
-    "container-source-policy-freebsd-x64": "0.3.0"
+    "container-source-policy-freebsd-x64": "0.5.0"
   },
   "scripts": {
     "postinstall": "node postinstall.js"
