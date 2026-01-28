@@ -22,10 +22,10 @@ import (
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/term"
 
+	httpclient "github.com/tinovyatkin/container-source-policy/httpchecksum"
 	"github.com/tinovyatkin/container-source-policy/internal/dhi"
 	"github.com/tinovyatkin/container-source-policy/internal/dockerfile"
 	"github.com/tinovyatkin/container-source-policy/internal/git"
-	httpclient "github.com/tinovyatkin/container-source-policy/internal/http"
 	"github.com/tinovyatkin/container-source-policy/internal/policy"
 	"github.com/tinovyatkin/container-source-policy/internal/registry"
 )

@@ -1,5 +1,24 @@
-// Package http provides an HTTP client for fetching checksums of remote resources
-package http
+// Package httpchecksum provides an HTTP client for computing checksums of remote resources
+// with optimizations for common hosting providers (S3, GitHub, raw.githubusercontent.com).
+//
+// The client attempts to retrieve checksums without downloading full content when possible:
+//   - AWS S3: Uses X-Amz-Checksum-Sha256 header
+//   - GitHub Releases: Uses GitHub API to fetch asset digests
+//   - raw.githubusercontent.com: Uses ETag header (SHA256)
+//   - Other servers: Downloads and computes SHA256
+//
+// The client also validates HTTP cache headers to detect volatile content that should
+// not be pinned for reproducible builds.
+//
+// Example usage:
+//
+//	client := httpchecksum.NewClient()
+//	checksum, err := client.GetChecksum(ctx, "https://example.com/file.tar.gz")
+//	if err != nil {
+//	    // Handle error
+//	}
+//	// checksum is in format "sha256:..."
+package httpchecksum
 
 import (
 	"context"
