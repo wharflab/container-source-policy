@@ -33,7 +33,7 @@
     "container-source-policy-linux-arm64": "0.5.0",
     "container-source-policy-linux-x64": "0.5.0",
     "container-source-policy-windows-arm64": "0.5.0",
-    "container-source-policy-windows-x64": "0.1.0",
+    "container-source-policy-windows-x64": "0.5.0",
     "container-source-policy-freebsd-x64": "0.5.0"
   },
   "scripts": {
