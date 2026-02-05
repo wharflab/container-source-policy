@@ -1,20 +1,24 @@
+# yaml-language-server: $schema=https://golangci-lint.run/jsonschema/golangci.jsonschema.json
+
 version: "2"
 
 run:
   concurrency: 4
+  go: "1.25.7"
+  modules-download-mode: readonly
   timeout: 5m
 
 linters:
   default: all
   disable:
     - cyclop          # complexity metrics - covered by gocyclo
+    - depguard        # import restrictions - using forbidigo instead
     - dupword         # duplicate words - too noisy
     - err113          # dynamic errors - too strict for CLI tool
     - exhaustruct     # requires all struct fields - too strict
-    - forbidigo       # forbidden identifiers - not needed
     - forcetypeassert # force type assertions - handled by other linters
-    - gochecknoglobals # global vars - cobra requires them
-    - gochecknoinits  # init functions - cobra requires them
+    - gochecknoglobals # global vars - CLI requires them
+    - gochecknoinits  # init functions - CLI requires them
     - gocognit        # cognitive complexity - covered by gocyclo
     - godoclint       # doc lint - too strict
     - godot           # dots at end of comments - too strict
@@ -30,21 +34,35 @@ linters:
     - tagliatelle     # struct tag naming - not needed
     - testpackage     # separate test packages - not needed
     - tparallel       # t.Parallel() - not needed
-    - unparam         # unused params - too strict
     - varnamelen      # variable name length - too strict
     - wastedassign    # wasted assignments - too noisy
     - wrapcheck       # wrap all errors - too strict for internal packages
     - wsl             # whitespace linter - too strict
     - wsl_v5          # whitespace linter v5 - too strict
   settings:
-    depguard:
-      rules:
-        main:
-          deny:
-            - pkg: github.com/sirupsen/logrus
-              desc: Use standard library log or slog
-            - pkg: github.com/go-logr/logr
-              desc: Use standard library log or slog
+    forbidigo:
+      analyze-types: true
+      forbid:
+        # Enforce buildkit usage for Dockerfile parsing (per CLAUDE.md philosophy)
+        - pattern: '.*'
+          msg: 'Use moby/buildkit/frontend/dockerfile/parser instead of docker/docker parser'
+          pkg: '^github\.com/docker/docker/builder/dockerfile/parser$'
+        # Enforce buildkit instruction types
+        - pattern: '.*'
+          msg: 'Use moby/buildkit/frontend/dockerfile/instructions instead'
+          pkg: '^github\.com/docker/docker/builder/dockerfile/instructions$'
+        # Prevent docker/docker API types
+        - pattern: '.*'
+          msg: 'Use moby/buildkit types or OCI image-spec types instead'
+          pkg: '^github\.com/docker/docker/api/types$'
+        # Prevent logrus (use standard library)
+        - pattern: '.*'
+          msg: 'Use standard library log or slog'
+          pkg: '^github\.com/sirupsen/logrus$'
+        # Prevent go-logr (use standard library)
+        - pattern: '.*'
+          msg: 'Use standard library log or slog'
+          pkg: '^github\.com/go-logr/logr$'
     dupl:
       threshold: 100
     errcheck:
@@ -61,6 +79,7 @@ linters:
         - whyNoLint
         - hugeParam
         - rangeValCopy
+        - unnamedResult  # conflicts with nonamedreturns linter
       enabled-tags:
         - diagnostic
         - experimental
@@ -81,7 +100,7 @@ linters:
         - name: unused-parameter
           disabled: true
     staticcheck:
-      checks: ["all", "-SA1019", "-SA4006"]
+      checks: ["all"]
   exclusions:
     generated: lax
     presets:
@@ -112,6 +131,10 @@ linters:
       # dupl: allow duplicate code in tests (table-driven test patterns)
       - linters:
           - dupl
+        path: ".*_test\\.go"
+      # goconst: allow repeated strings in tests (expected values)
+      - linters:
+          - goconst
         path: ".*_test\\.go"
       # errcheck: allow unchecked Write in test http handlers
       - linters:
