@@ -117,23 +117,19 @@ jobs:
           ARM64_DIR=$(find dist -maxdepth 1 -type d -name 'container-source-policy_darwin_arm64*' | head -1)
           AMD64_DIR=$(find dist -maxdepth 1 -type d -name 'container-source-policy_darwin_amd64*' | head -1)
 
-          # Copy LICENSE to build directories (GoReleaser only includes them in archives)
-          cp LICENSE "$ARM64_DIR/"
-          cp LICENSE "$AMD64_DIR/"
-
-          # Re-create Darwin arm64 archive
+          # Re-create MacOS arm64 archive (no extra files — goreleaser uses files: [none*])
           cd "$ARM64_DIR"
-          tar -czvf "../container-source-policy_${VERSION}_Darwin_arm64.tar.gz" container-source-policy LICENSE
+          tar -czvf "../container-source-policy_${VERSION}_MacOS_arm64.tar.gz" container-source-policy
           cd ..
 
-          # Re-create Darwin x86_64 archive
+          # Re-create MacOS x86_64 archive
           cd "$(basename "$AMD64_DIR")"
-          tar -czvf "../container-source-policy_${VERSION}_Darwin_x86_64.tar.gz" container-source-policy LICENSE
+          tar -czvf "../container-source-policy_${VERSION}_MacOS_x86_64.tar.gz" container-source-policy
           cd ../..
 
           # Generate new checksums for darwin archives
           cd dist
-          shasum -a 256 "container-source-policy_${VERSION}_Darwin_arm64.tar.gz" "container-source-policy_${VERSION}_Darwin_x86_64.tar.gz" > darwin_checksums.txt
+          shasum -a 256 "container-source-policy_${VERSION}_MacOS_arm64.tar.gz" "container-source-policy_${VERSION}_MacOS_x86_64.tar.gz" > darwin_checksums.txt
           cat darwin_checksums.txt
 
       - name: Upload signed archives to release
@@ -144,16 +140,17 @@ jobs:
 
           # Replace unsigned darwin archives with signed ones
           gh release upload "$GITHUB_REF_NAME" \
-            "dist/container-source-policy_${VERSION}_Darwin_arm64.tar.gz" \
-            "dist/container-source-policy_${VERSION}_Darwin_x86_64.tar.gz" \
+            "dist/container-source-policy_${VERSION}_MacOS_arm64.tar.gz" \
+            "dist/container-source-policy_${VERSION}_MacOS_x86_64.tar.gz" \
             --clobber
 
           # Download current checksums, update darwin entries, re-upload
-          gh release download "$GITHUB_REF_NAME" -p "checksums.txt" -D /tmp
-          # Remove old darwin checksums and append new ones
-          grep -v "Darwin" /tmp/checksums.txt > /tmp/checksums_updated.txt || true
+          gh release download "$GITHUB_REF_NAME" -p "container-source-policy_checksums.txt" -D /tmp
+          # Remove old MacOS checksums and append new ones
+          grep -v "MacOS" /tmp/container-source-policy_checksums.txt > /tmp/checksums_updated.txt || true
           cat dist/darwin_checksums.txt >> /tmp/checksums_updated.txt
-          gh release upload "$GITHUB_REF_NAME" /tmp/checksums_updated.txt --clobber
+          mv /tmp/checksums_updated.txt /tmp/container-source-policy_checksums.txt
+          gh release upload "$GITHUB_REF_NAME" /tmp/container-source-policy_checksums.txt --clobber
 
       - name: Re-package signed artifacts
         run: tar -cvf dist-signed.tar dist/
