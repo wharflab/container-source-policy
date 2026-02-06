@@ -64,6 +64,11 @@ func TestMapToECRPublic(t *testing.T) {
 		{"node image", "node:20", "public.ecr.aws/docker/library/node:20"},
 		{"golang alpine", "golang:1.21-alpine", "public.ecr.aws/docker/library/golang:1.21-alpine"},
 		{"python slim", "python:3.12-slim", "public.ecr.aws/docker/library/python:3.12-slim"},
+		{
+			"with digest",
+			"docker.io/library/alpine@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+			"public.ecr.aws/docker/library/alpine@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+		},
 	}
 
 	for _, tt := range tests {

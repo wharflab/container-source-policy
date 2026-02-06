@@ -60,5 +60,10 @@ func MapToECRPublic(ref reference.Named) (reference.Named, error) {
 		ecrRefStr += ":" + tagged.Tag()
 	}
 
+	// Preserve digest if present
+	if digested, ok := ref.(reference.Digested); ok {
+		ecrRefStr += "@" + digested.Digest().String()
+	}
+
 	return reference.ParseNormalizedNamed(ecrRefStr)
 }
