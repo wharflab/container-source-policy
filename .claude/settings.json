@@ -5,7 +5,10 @@
     "CLICOLOR": "1",
     "CLICOLOR_FORCE": "1",
     "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR": "1",
-    "GH_PAGER": "cat"
+    "GH_PAGER": "cat",
+    "GH_PROMPT_DISABLED": "1",
+    "GH_NO_UPDATE_NOTIFIER": "1",
+    "GH_NO_EXTENSION_UPDATE_NOTIFIER": "1"
   },
   "permissions": {
     "allow": [
