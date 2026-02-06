@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "action": "CONVERT",
+      "selector": {
+        "identifier": "docker-image://golang:1.21",
+        "match_type": "EXACT"
+      },
+      "updates": {
+        "identifier": "docker-image://public.ecr.aws/docker/library/golang:1.21@sha256:ab94443f8247934642eb9f9b053c090a63a68e86c18745e20707af42bd35f5f9"
+      }
+    },
+    {
+      "action": "CONVERT",
+      "selector": {
+        "identifier": "docker-image://alpine:3.18",
+        "match_type": "EXACT"
+      },
+      "updates": {
+        "identifier": "docker-image://public.ecr.aws/docker/library/alpine:3.18@sha256:2c84a7ac657f3062f891adaa9177c1f36b1069ec00fc5a6ce824405866201ff7"
+      }
+    }
+  ]
+}

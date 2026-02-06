@@ -25,6 +25,7 @@ import (
 	httpclient "github.com/wharflab/container-source-policy/httpchecksum"
 	"github.com/wharflab/container-source-policy/internal/dhi"
 	"github.com/wharflab/container-source-policy/internal/dockerfile"
+	"github.com/wharflab/container-source-policy/internal/ecrpublic"
 	"github.com/wharflab/container-source-policy/internal/git"
 	"github.com/wharflab/container-source-policy/internal/policy"
 	"github.com/wharflab/container-source-policy/internal/registry"
@@ -32,8 +33,9 @@ import (
 
 // Options configures the pin operation
 type Options struct {
-	Dockerfiles []string
-	PreferDHI   bool // Prefer Docker Hardened Images (dhi.io) when available
+	Dockerfiles     []string
+	PreferDHI       bool // Prefer Docker Hardened Images (dhi.io) when available
+	PreferECRPublic bool // Prefer AWS ECR Public Gallery (public.ecr.aws) when available
 }
 
 // imageTask represents an image to pin
@@ -236,7 +238,7 @@ func GeneratePolicy(ctx context.Context, opts Options) (*policy.Policy, error) {
 	g, ctx := errgroup.WithContext(ctx)
 
 	for _, task := range collector.imageTasks {
-		g.Go(processImage(ctx, task, registryClient, progress, results, opts.PreferDHI))
+		g.Go(processImage(ctx, task, registryClient, progress, results, opts.PreferDHI, opts.PreferECRPublic))
 	}
 
 	for _, task := range collector.httpTasks {
@@ -273,6 +275,7 @@ func processImage(
 	progress *mpb.Progress,
 	results *resultCollector,
 	preferDHI bool,
+	preferECRPublic bool,
 ) func() error {
 	return func() error {
 		name := truncateLeft(task.original, 40)
@@ -315,7 +318,30 @@ func processImage(
 			}
 		}
 
-		// Fall back to original image if DHI not used or not found
+		// Try ECR Public Gallery if enabled (and DHI wasn't used/found)
+		if pinnedRef == nil && preferECRPublic && ecrpublic.CanMapToECRPublic(task.ref) {
+			ecrRef, mapErr := ecrpublic.MapToECRPublic(task.ref)
+			if mapErr != nil {
+				if !errors.Is(mapErr, ecrpublic.ErrNotEligible) {
+					bar.Abort(true)
+					return fmt.Errorf("failed to map ECR Public reference for %s: %w", task.original, mapErr)
+				}
+			} else if ecrRef != nil {
+				ecrDigest, ecrErr := client.GetDigest(ctx, ecrRef)
+				if ecrErr == nil {
+					// ECR Public image exists, use it
+					digestStr = ecrDigest
+					pinnedRef = ecrRef
+				} else if !registry.IsNotFoundOrAuthError(ecrErr) {
+					// Unexpected error (network issue, etc.) - fail the operation
+					bar.Abort(true)
+					return fmt.Errorf("failed to check ECR Public image %s: %w", ecrRef.String(), ecrErr)
+				}
+				// else: ECR Public not found or auth error, fall back to original below
+			}
+		}
+
+		// Fall back to original image if preferred registry not used or not found
 		if pinnedRef == nil {
 			digestStr, err = client.GetDigest(ctx, task.ref)
 			if err != nil {

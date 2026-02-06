@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "action": "CONVERT",
+      "selector": {
+        "identifier": "docker-image://ghcr.io/actions/actions-runner:latest",
+        "match_type": "EXACT"
+      },
+      "updates": {
+        "identifier": "docker-image://ghcr.io/actions/actions-runner:latest@sha256:ab21bc9f6d0b48ff736eb43e8aa57c4f5dc0b0c4f2bac6ead8abaf571363ad93"
+      }
+    }
+  ]
+}

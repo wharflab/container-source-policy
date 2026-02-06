@@ -93,6 +93,11 @@ func TestMain(m *testing.M) {
 		{"golang", "1.21", 102},
 		{"busybox", "1.36", 104},
 		{"nginx", "1.25", 105},
+		// ECR Public equivalents (public.ecr.aws/docker/library/*) - use different seeds
+		{"docker/library/alpine", "3.18", 201},
+		{"docker/library/golang", "1.21", 202},
+		{"docker/library/busybox", "1.36", 204},
+		{"docker/library/nginx", "1.25", 205},
 	}
 
 	for _, img := range images {
@@ -105,7 +110,15 @@ func TestMain(m *testing.M) {
 
 	// Create registries.conf that redirects all registries to our mock
 	// Include dhi.io for DHI preference testing
-	registryConf, err = mockRegistry.WriteRegistriesConf(tmpDir, "docker.io", "ghcr.io", "gcr.io", "quay.io", "dhi.io")
+	registryConf, err = mockRegistry.WriteRegistriesConf(
+		tmpDir,
+		"docker.io",
+		"ghcr.io",
+		"gcr.io",
+		"quay.io",
+		"dhi.io",
+		"public.ecr.aws",
+	)
 	if err != nil {
 		mockRegistry.Close()
 		_ = os.RemoveAll(tmpDir)
@@ -180,6 +193,29 @@ func TestPin(t *testing.T) {
 			"multistage",
 			[]string{"--prefer-dhi"},
 			[]string{"auth-check/manifests/test", "golang/manifests/1.21", "alpine/manifests/3.18"},
+			false,
+		},
+		// Tests with ECR Public preference enabled
+		// Note: no auth-check because ECR Public Gallery is publicly accessible
+		{
+			"prefer-ecr-public-simple",
+			"simple",
+			[]string{"--prefer-ecr-public"},
+			[]string{"docker/library/alpine/manifests/3.18"},
+			false,
+		},
+		{
+			"prefer-ecr-public-multistage",
+			"multistage",
+			[]string{"--prefer-ecr-public"},
+			[]string{"docker/library/golang/manifests/1.21", "docker/library/alpine/manifests/3.18"},
+			false,
+		},
+		{
+			"prefer-ecr-public-ghcr",
+			"ghcr",
+			[]string{"--prefer-ecr-public"},
+			[]string{"actions/actions-runner/manifests/latest"},
 			false,
 		},
 	}
