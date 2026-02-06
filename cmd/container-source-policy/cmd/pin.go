@@ -25,34 +25,44 @@ Example:
   container-source-policy pin --output policy.json Dockerfile
   container-source-policy pin --stdout Dockerfile.* > policy.json
   cat Dockerfile | container-source-policy pin --stdout -`,
-		Flags: []cli.Flag{
-			&cli.BoolFlag{
-				Name:  "prefer-dhi",
-				Value: false,
-				Usage: "prefer Docker Hardened Images (dhi.io) when available (requires: docker login dhi.io)",
+		MutuallyExclusiveFlags: []cli.MutuallyExclusiveFlags{
+			{
+				Flags: [][]cli.Flag{
+					{&cli.StringFlag{
+						Name:    "output",
+						Aliases: []string{"o"},
+						Usage:   "Output file path for the policy JSON",
+					}},
+					{&cli.BoolFlag{
+						Name:  "stdout",
+						Usage: "Write policy to stdout instead of file",
+					}},
+				},
+			},
+			{
+				Flags: [][]cli.Flag{
+					{&cli.BoolFlag{
+						Name:  "prefer-dhi",
+						Value: false,
+						Usage: "prefer Docker Hardened Images (dhi.io) when available (requires: docker login dhi.io)",
+					}},
+					{&cli.BoolFlag{
+						Name:  "prefer-ecr-public",
+						Value: false,
+						Usage: "prefer AWS ECR Public Gallery (public.ecr.aws) when available for Docker Hub official images",
+					}},
+				},
 			},
 		},
-		MutuallyExclusiveFlags: []cli.MutuallyExclusiveFlags{{
-			Flags: [][]cli.Flag{
-				{&cli.StringFlag{
-					Name:    "output",
-					Aliases: []string{"o"},
-					Usage:   "Output file path for the policy JSON",
-				}},
-				{&cli.BoolFlag{
-					Name:  "stdout",
-					Usage: "Write policy to stdout instead of file",
-				}},
-			},
-		}},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			if cmd.NArg() < 1 {
 				return errors.New("at least one Dockerfile path is required")
 			}
 
 			opts := pin.Options{
-				Dockerfiles: cmd.Args().Slice(),
-				PreferDHI:   cmd.Bool("prefer-dhi"),
+				Dockerfiles:     cmd.Args().Slice(),
+				PreferDHI:       cmd.Bool("prefer-dhi"),
+				PreferECRPublic: cmd.Bool("prefer-ecr-public"),
 			}
 
 			policy, err := pin.GeneratePolicy(ctx, opts)

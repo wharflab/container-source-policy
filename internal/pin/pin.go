@@ -25,6 +25,7 @@ import (
 	httpclient "github.com/wharflab/container-source-policy/httpchecksum"
 	"github.com/wharflab/container-source-policy/internal/dhi"
 	"github.com/wharflab/container-source-policy/internal/dockerfile"
+	"github.com/wharflab/container-source-policy/internal/ecrpublic"
 	"github.com/wharflab/container-source-policy/internal/git"
 	"github.com/wharflab/container-source-policy/internal/policy"
 	"github.com/wharflab/container-source-policy/internal/registry"
@@ -32,8 +33,9 @@ import (
 
 // Options configures the pin operation
 type Options struct {
-	Dockerfiles []string
-	PreferDHI   bool // Prefer Docker Hardened Images (dhi.io) when available
+	Dockerfiles     []string
+	PreferDHI       bool // Prefer Docker Hardened Images (dhi.io) when available
+	PreferECRPublic bool // Prefer AWS ECR Public Gallery (public.ecr.aws) when available
 }
 
 // imageTask represents an image to pin
@@ -236,7 +238,7 @@ func GeneratePolicy(ctx context.Context, opts Options) (*policy.Policy, error) {
 	g, ctx := errgroup.WithContext(ctx)
 
 	for _, task := range collector.imageTasks {
-		g.Go(processImage(ctx, task, registryClient, progress, results, opts.PreferDHI))
+		g.Go(processImage(ctx, task, registryClient, progress, results, opts.PreferDHI, opts.PreferECRPublic))
 	}
 
 	for _, task := range collector.httpTasks {
@@ -273,6 +275,7 @@ func processImage(
 	progress *mpb.Progress,
 	results *resultCollector,
 	preferDHI bool,
+	preferECRPublic bool,
 ) func() error {
 	return func() error {
 		name := truncateLeft(task.original, 40)
@@ -293,29 +296,38 @@ func processImage(
 		var err error
 
 		// Try DHI (Docker Hardened Images) first if enabled
-		if preferDHI && dhi.CanMapToDHI(task.ref) {
-			dhiRef, mapErr := dhi.MapToDHI(task.ref)
-			if mapErr != nil {
-				if !errors.Is(mapErr, dhi.ErrNotEligible) {
-					bar.Abort(true)
-					return fmt.Errorf("failed to map DHI reference for %s: %w", task.original, mapErr)
-				}
-			} else if dhiRef != nil {
-				dhiDigest, dhiErr := client.GetDigest(ctx, dhiRef)
-				if dhiErr == nil {
-					// DHI image exists, use it
-					digestStr = dhiDigest
-					pinnedRef = dhiRef
-				} else if !registry.IsNotFoundOrAuthError(dhiErr) {
-					// Unexpected error (network issue, etc.) - fail the operation
-					bar.Abort(true)
-					return fmt.Errorf("failed to check DHI image %s: %w", dhiRef.String(), dhiErr)
-				}
-				// else: DHI not found or auth error, fall back to original below
+		if preferDHI {
+			pinnedRef, digestStr, err = tryPreferredRegistry(
+				ctx,
+				task.ref,
+				dhi.CanMapToDHI,
+				dhi.MapToDHI,
+				dhi.ErrNotEligible,
+				client,
+			)
+			if err != nil {
+				bar.Abort(true)
+				return fmt.Errorf("failed to resolve DHI image for %s: %w", task.original, err)
 			}
 		}
 
-		// Fall back to original image if DHI not used or not found
+		// Try ECR Public Gallery if enabled (and DHI wasn't used/found)
+		if pinnedRef == nil && preferECRPublic {
+			pinnedRef, digestStr, err = tryPreferredRegistry(
+				ctx,
+				task.ref,
+				ecrpublic.CanMapToECRPublic,
+				ecrpublic.MapToECRPublic,
+				ecrpublic.ErrNotEligible,
+				client,
+			)
+			if err != nil {
+				bar.Abort(true)
+				return fmt.Errorf("failed to resolve ECR Public image for %s: %w", task.original, err)
+			}
+		}
+
+		// Fall back to original image if preferred registry not used or not found
 		if pinnedRef == nil {
 			digestStr, err = client.GetDigest(ctx, task.ref)
 			if err != nil {
@@ -345,6 +357,40 @@ func processImage(
 
 		return nil
 	}
+}
+
+// tryPreferredRegistry attempts to resolve an image via a preferred registry mapper.
+// Returns (mappedRef, digest, nil) on success, or (nil, "", nil) to signal fallback.
+// Only returns a non-nil error on unexpected failures.
+func tryPreferredRegistry(
+	ctx context.Context,
+	ref reference.Named,
+	canMap func(reference.Named) bool,
+	mapFn func(reference.Named) (reference.Named, error),
+	notEligibleErr error,
+	client *registry.Client,
+) (reference.Named, string, error) {
+	if !canMap(ref) {
+		return nil, "", nil
+	}
+	mapped, err := mapFn(ref)
+	if err != nil {
+		if errors.Is(err, notEligibleErr) {
+			return nil, "", nil
+		}
+		return nil, "", err
+	}
+	if mapped == nil {
+		return nil, "", nil
+	}
+	digestStr, err := client.GetDigest(ctx, mapped)
+	if err == nil {
+		return mapped, digestStr, nil
+	}
+	if registry.IsNotFoundOrAuthError(err) {
+		return nil, "", nil
+	}
+	return nil, "", fmt.Errorf("failed to check image %s: %w", mapped.String(), err)
 }
 
 func processHTTP(
