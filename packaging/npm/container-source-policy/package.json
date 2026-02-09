@@ -29,7 +29,7 @@
   "homepage": "https://github.com/wharflab/container-source-policy#readme",
   "optionalDependencies": {
     "container-source-policy-darwin-arm64": "0.5.0",
-    "container-source-policy-darwin-x64": "0.5.0",
+    "container-source-policy-darwin-x64": "0.6.0",
     "container-source-policy-linux-arm64": "0.5.0",
     "container-source-policy-linux-x64": "0.5.0",
     "container-source-policy-windows-arm64": "0.5.0",
