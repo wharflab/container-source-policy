@@ -1,6 +1,6 @@
 module github.com/wharflab/container-source-policy
 
-go 1.25.7
+go 1.26.0
 
 require (
 	github.com/containers/image/v5 v5.36.2
