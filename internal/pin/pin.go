@@ -260,7 +260,7 @@ func GeneratePolicy(ctx context.Context, opts Options) (*policy.Policy, error) {
 }
 
 func newProgressContainer() *mpb.Progress {
-	isTTY := term.IsTerminal(int(os.Stderr.Fd()))
+	isTTY := term.IsTerminal(int(os.Stderr.Fd())) //nolint:gosec // file descriptor fits in int
 	var output io.Writer
 	if isTTY {
 		output = os.Stderr
@@ -419,7 +419,6 @@ func processHTTP(
 						if s.Total <= 0 {
 							return "checking..."
 						}
-						//nolint:gosec // values are non-negative by design
 						return humanize.Bytes(
 							uint64(max(0, s.Current)),
 						) + " / " + humanize.Bytes(

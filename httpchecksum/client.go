@@ -173,6 +173,7 @@ func (c *Client) getChecksumFromHEADWithHeaders(ctx context.Context, rawURL stri
 	// Request S3 checksums if available (this header is ignored by non-S3 servers)
 	req.Header.Set("X-Amz-Checksum-Mode", "ENABLED")
 
+	//nolint:gosec // URL from Dockerfile ADD, not attacker-controlled
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -298,6 +299,7 @@ func (c *Client) getChecksumFromGitHubRelease(ctx context.Context, parsedURL *ur
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
+	//nolint:gosec // URL built from parsed GitHub release components
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return "", err
@@ -343,6 +345,7 @@ func (c *Client) computeChecksumWithHeaders(ctx context.Context, rawURL string) 
 	// Set User-Agent to identify the tool making requests
 	req.Header.Set("User-Agent", version.UserAgent())
 
+	//nolint:gosec // URL from Dockerfile ADD, not attacker-controlled
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
