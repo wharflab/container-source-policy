@@ -51,6 +51,11 @@ Example:
 						Value: false,
 						Usage: "prefer AWS ECR Public Gallery (public.ecr.aws) when available for Docker Hub official images",
 					}},
+					{&cli.BoolFlag{
+						Name:  "prefer-mcr",
+						Value: false,
+						Usage: "prefer Microsoft Container Registry (mcr.microsoft.com) mirror when available for Docker Hub official images",
+					}},
 				},
 			},
 		},
@@ -63,6 +68,7 @@ Example:
 				Dockerfiles:     cmd.Args().Slice(),
 				PreferDHI:       cmd.Bool("prefer-dhi"),
 				PreferECRPublic: cmd.Bool("prefer-ecr-public"),
+				PreferMCR:       cmd.Bool("prefer-mcr"),
 			}
 
 			policy, err := pin.GeneratePolicy(ctx, opts)

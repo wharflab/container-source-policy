@@ -98,6 +98,11 @@ func TestMain(m *testing.M) {
 		{"docker/library/golang", "1.21", 202},
 		{"docker/library/busybox", "1.36", 204},
 		{"docker/library/nginx", "1.25", 205},
+		// MCR equivalents (mcr.microsoft.com/mirror/docker/library/*) - use different seeds
+		{"mirror/docker/library/alpine", "3.18", 301},
+		{"mirror/docker/library/golang", "1.21", 302},
+		{"mirror/docker/library/busybox", "1.36", 304},
+		{"mirror/docker/library/nginx", "1.25", 305},
 	}
 
 	for _, img := range images {
@@ -109,7 +114,7 @@ func TestMain(m *testing.M) {
 	}
 
 	// Create registries.conf that redirects all registries to our mock
-	// Include dhi.io for DHI preference testing
+	// Include dhi.io for DHI preference testing and mcr.microsoft.com for MCR preference testing
 	registryConf, err = mockRegistry.WriteRegistriesConf(
 		tmpDir,
 		"docker.io",
@@ -118,6 +123,7 @@ func TestMain(m *testing.M) {
 		"quay.io",
 		"dhi.io",
 		"public.ecr.aws",
+		"mcr.microsoft.com",
 	)
 	if err != nil {
 		mockRegistry.Close()
@@ -215,6 +221,29 @@ func TestPin(t *testing.T) {
 			"prefer-ecr-public-ghcr",
 			"ghcr",
 			[]string{"--prefer-ecr-public"},
+			[]string{"actions/actions-runner/manifests/latest"},
+			false,
+		},
+		// Tests with MCR preference enabled
+		// Note: no auth-check because MCR is publicly accessible
+		{
+			"prefer-mcr-simple",
+			"simple",
+			[]string{"--prefer-mcr"},
+			[]string{"mirror/docker/library/alpine/manifests/3.18"},
+			false,
+		},
+		{
+			"prefer-mcr-multistage",
+			"multistage",
+			[]string{"--prefer-mcr"},
+			[]string{"mirror/docker/library/golang/manifests/1.21", "mirror/docker/library/alpine/manifests/3.18"},
+			false,
+		},
+		{
+			"prefer-mcr-ghcr",
+			"ghcr",
+			[]string{"--prefer-mcr"},
 			[]string{"actions/actions-runner/manifests/latest"},
 			false,
 		},
