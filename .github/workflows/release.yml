@@ -45,7 +45,7 @@ jobs:
       - name: Preserve artifacts permissions with tar
         run: tar -cvf dist.tar dist/
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist.tar
@@ -58,7 +58,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Download artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: dist
 
@@ -156,7 +156,7 @@ jobs:
         run: tar -cvf dist-signed.tar dist/
 
       - name: Upload signed artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: dist-signed
           path: dist-signed.tar
@@ -239,7 +239,7 @@ jobs:
           fetch-depth: 0
       - run: git fetch --force --tags
 
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: dist-signed
       - run: tar -xvf dist-signed.tar
@@ -268,7 +268,7 @@ jobs:
           fetch-depth: 0
       - run: git fetch --force --tags
 
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: dist-signed
       - run: tar -xvf dist-signed.tar
@@ -300,7 +300,7 @@ jobs:
           fetch-depth: 0
       - run: git fetch --force --tags
 
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: dist-signed
       - run: tar -xvf dist-signed.tar
