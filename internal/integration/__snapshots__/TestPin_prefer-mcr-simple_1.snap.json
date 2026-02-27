@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "action": "CONVERT",
+      "selector": {
+        "identifier": "docker-image://alpine:3.18",
+        "match_type": "EXACT"
+      },
+      "updates": {
+        "identifier": "docker-image://mcr.microsoft.com/mirror/docker/library/alpine:3.18@sha256:3ffebabd52fb0b73e4d97fb0de47285d94f480e409b999fb0ac13d5393c3c86b"
+      }
+    }
+  ]
+}

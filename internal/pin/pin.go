@@ -27,6 +27,7 @@ import (
 	"github.com/wharflab/container-source-policy/internal/dockerfile"
 	"github.com/wharflab/container-source-policy/internal/ecrpublic"
 	"github.com/wharflab/container-source-policy/internal/git"
+	"github.com/wharflab/container-source-policy/internal/mcr"
 	"github.com/wharflab/container-source-policy/internal/policy"
 	"github.com/wharflab/container-source-policy/internal/registry"
 )
@@ -36,6 +37,7 @@ type Options struct {
 	Dockerfiles     []string
 	PreferDHI       bool // Prefer Docker Hardened Images (dhi.io) when available
 	PreferECRPublic bool // Prefer AWS ECR Public Gallery (public.ecr.aws) when available
+	PreferMCR       bool // Prefer Microsoft Container Registry (mcr.microsoft.com) mirror when available
 }
 
 // imageTask represents an image to pin
@@ -238,7 +240,10 @@ func GeneratePolicy(ctx context.Context, opts Options) (*policy.Policy, error) {
 	g, ctx := errgroup.WithContext(ctx)
 
 	for _, task := range collector.imageTasks {
-		g.Go(processImage(ctx, task, registryClient, progress, results, opts.PreferDHI, opts.PreferECRPublic))
+		g.Go(processImage(
+			ctx, task, registryClient, progress, results,
+			opts.PreferDHI, opts.PreferECRPublic, opts.PreferMCR,
+		))
 	}
 
 	for _, task := range collector.httpTasks {
@@ -276,6 +281,7 @@ func processImage(
 	results *resultCollector,
 	preferDHI bool,
 	preferECRPublic bool,
+	preferMCR bool,
 ) func() error {
 	return func() error {
 		name := truncateLeft(task.original, 40)
@@ -324,6 +330,22 @@ func processImage(
 			if err != nil {
 				bar.Abort(true)
 				return fmt.Errorf("failed to resolve ECR Public image for %s: %w", task.original, err)
+			}
+		}
+
+		// Try MCR (Microsoft Container Registry) mirror if enabled (and others weren't used/found)
+		if pinnedRef == nil && preferMCR {
+			pinnedRef, digestStr, err = tryPreferredRegistry(
+				ctx,
+				task.ref,
+				mcr.CanMapToMCR,
+				mcr.MapToMCR,
+				mcr.ErrNotEligible,
+				client,
+			)
+			if err != nil {
+				bar.Abort(true)
+				return fmt.Errorf("failed to resolve MCR image for %s: %w", task.original, err)
 			}
 		}
 
