@@ -10,7 +10,7 @@ require (
 	github.com/moby/buildkit v0.27.1
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/pquerna/cachecontrol v0.2.0
-	github.com/urfave/cli/v3 v3.6.2
+	github.com/urfave/cli/v3 v3.7.0
 	github.com/vbauerster/mpb/v8 v8.12.0
 	golang.org/x/sync v0.19.0
 	golang.org/x/term v0.40.0
