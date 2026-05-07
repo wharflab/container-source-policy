@@ -17,7 +17,7 @@ lint-fix: bin/golangci-lint-$(GOLANGCI_LINT_VERSION)
 
 bin/golangci-lint-$(GOLANGCI_LINT_VERSION):
 	@rm -f bin/golangci-lint bin/golangci-lint-*
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/$(GOLANGCI_LINT_VERSION)/install.sh | sh -s -- -b bin/ $(GOLANGCI_LINT_VERSION)
+	GOBIN=$(CURDIR)/bin go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 	@touch $@
 
 bin/goreleaser-$(GORELEASER_VERSION):

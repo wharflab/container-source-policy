@@ -265,12 +265,19 @@ func GeneratePolicy(ctx context.Context, opts Options) (*policy.Policy, error) {
 }
 
 func newProgressContainer() *mpb.Progress {
-	isTTY := term.IsTerminal(int(os.Stderr.Fd())) //nolint:gosec // file descriptor fits in int
+	isTTY := term.IsTerminal(int(os.Stderr.Fd()))
 	var output io.Writer
 	if isTTY {
 		output = os.Stderr
 	}
 	return mpb.New(mpb.WithOutput(output))
+}
+
+func humanizeProgressBytes(size int64) string {
+	if size <= 0 {
+		return humanize.Bytes(0)
+	}
+	return humanize.Bytes(uint64(size))
 }
 
 func processImage(
@@ -441,11 +448,7 @@ func processHTTP(
 						if s.Total <= 0 {
 							return "checking..."
 						}
-						return humanize.Bytes(
-							uint64(max(0, s.Current)),
-						) + " / " + humanize.Bytes(
-							uint64(max(0, s.Total)),
-						)
+						return humanizeProgressBytes(s.Current) + " / " + humanizeProgressBytes(s.Total)
 					}),
 					"✓",
 				),
