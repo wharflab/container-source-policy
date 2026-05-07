@@ -12,6 +12,8 @@ import (
 	"github.com/moby/buildkit/util/gitutil"
 )
 
+const defaultRef = "HEAD"
+
 // Client handles git operations
 type Client struct{}
 
@@ -41,7 +43,7 @@ func ParseGitURL(rawURL string) (*GitRef, error) {
 	parts := strings.SplitN(rawURL, "#", 2)
 	remote := parts[0]
 
-	ref := "HEAD" // default ref
+	ref := defaultRef
 	subdir := ""
 
 	if len(parts) == 2 {
@@ -51,7 +53,7 @@ func ParseGitURL(rawURL string) (*GitRef, error) {
 			refParts := strings.SplitN(fragment, ":", 2)
 			ref = refParts[0]
 			if ref == "" {
-				ref = "HEAD"
+				ref = defaultRef
 			}
 			if len(refParts) == 2 {
 				subdir = refParts[1]

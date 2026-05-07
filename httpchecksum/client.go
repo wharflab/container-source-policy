@@ -41,6 +41,8 @@ import (
 	"github.com/wharflab/container-source-policy/internal/version"
 )
 
+const amazonS3Server = "AmazonS3"
+
 // AuthError indicates an HTTP resource requires authentication
 type AuthError struct {
 	URL        string
@@ -197,7 +199,7 @@ func (c *Client) getChecksumFromHEADWithHeaders(ctx context.Context, rawURL stri
 	var checksum string
 	// Detect S3 from Server header (more reliable than URL pattern matching)
 	server := resp.Header.Get("Server")
-	if server == "AmazonS3" {
+	if server == amazonS3Server {
 		checksum, err = c.extractS3Checksum(resp)
 		if err != nil {
 			return nil, err

@@ -6,7 +6,7 @@ build:
 test:
 	go test -race -count=1 -timeout=30s ./...
 
-GOLANGCI_LINT_VERSION := v2.8.0
+GOLANGCI_LINT_VERSION := v2.12.2
 GORELEASER_VERSION := v2.13.3
 
 lint: bin/golangci-lint-$(GOLANGCI_LINT_VERSION)

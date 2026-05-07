@@ -22,6 +22,7 @@ linters:
     - gocognit        # cognitive complexity - covered by gocyclo
     - godoclint       # doc lint - too strict
     - godot           # dots at end of comments - too strict
+    - gomodguard      # deprecated; gomodguard_v2 is enabled by default: all
     - gomoddirectives # module directives - not needed
     - ireturn         # return interfaces - too strict for this codebase
     - maintidx        # maintainability index - not needed
