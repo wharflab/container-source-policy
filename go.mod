@@ -7,7 +7,7 @@ require (
 	github.com/dustin/go-humanize v1.0.1
 	github.com/gkampitakis/go-snaps v0.5.21
 	github.com/google/go-containerregistry v0.21.5
-	github.com/moby/buildkit v0.28.1
+	github.com/moby/buildkit v0.29.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/pquerna/cachecontrol v0.2.0
 	github.com/urfave/cli/v3 v3.8.0
@@ -21,6 +21,7 @@ require (
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/agext/levenshtein v1.2.3 // indirect
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/clipperhouse/stringish v0.1.1 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
@@ -63,8 +64,8 @@ require (
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/tonistiigi/go-csvvalue v0.0.0-20240814133006-030d3b2625d0 // indirect
 	github.com/vbatts/tar-split v0.12.2 // indirect
-	go.opentelemetry.io/otel v1.38.0 // indirect
-	go.opentelemetry.io/otel/trace v1.38.0 // indirect
+	go.opentelemetry.io/otel v1.40.0 // indirect
+	go.opentelemetry.io/otel/trace v1.40.0 // indirect
 	golang.org/x/crypto v0.48.0 // indirect
 	golang.org/x/sys v0.44.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
