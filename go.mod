@@ -11,7 +11,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/pquerna/cachecontrol v0.2.0
 	github.com/urfave/cli/v3 v3.9.0
-	github.com/vbauerster/mpb/v8 v8.12.0
+	github.com/vbauerster/mpb/v8 v8.12.1
 	golang.org/x/sync v0.20.0
 	golang.org/x/term v0.43.0
 )
@@ -45,7 +45,7 @@ require (
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/maruel/natural v1.1.1 // indirect
-	github.com/mattn/go-runewidth v0.0.20 // indirect
+	github.com/mattn/go-runewidth v0.0.23 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/sys/capability v0.4.0 // indirect
