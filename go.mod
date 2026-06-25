@@ -7,7 +7,7 @@ require (
 	github.com/dustin/go-humanize v1.0.1
 	github.com/gkampitakis/go-snaps v0.5.22
 	github.com/google/go-containerregistry v0.21.7
-	github.com/moby/buildkit v0.31.0
+	github.com/moby/buildkit v0.31.1
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/pquerna/cachecontrol v0.2.0
 	github.com/urfave/cli/v3 v3.10.0
