@@ -244,7 +244,7 @@ jobs:
           name: dist-signed
       - run: tar -xvf dist-signed.tar
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 24.18.0
 
