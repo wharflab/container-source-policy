@@ -13,7 +13,7 @@ require (
 	github.com/urfave/cli/v3 v3.10.1
 	github.com/vbauerster/mpb/v8 v8.13.0
 	golang.org/x/sync v0.22.0
-	golang.org/x/term v0.44.0
+	golang.org/x/term v0.45.0
 )
 
 require (
