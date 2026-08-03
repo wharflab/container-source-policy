@@ -277,6 +277,8 @@ github.com/vbauerster/mpb/v8 v8.13.0 h1:uv5hrYmoVNy+3w4mjePgQXwmqUzLjhKX5p2+77CF
 github.com/vbauerster/mpb/v8 v8.13.0/go.mod h1:yY6DDD9c3idT01aDMzs98st5aotXIOXXUgPG3hAbAHk=
 github.com/vbauerster/mpb/v8 v8.14.0 h1:55SR80dptMfASxIG/oCEkBXgBhxeSu4GrVsjl16oKmA=
 github.com/vbauerster/mpb/v8 v8.14.0/go.mod h1:HgpQPKfcWe3kbuGGPmi+jatHreMase5C3Fp5dpdAy0Q=
+github.com/vbauerster/mpb/v8 v8.15.1 h1:lU/aOyrM/cGYhUTFGRkJM9zsVkc35abxlGSvA4lmg9M=
+github.com/vbauerster/mpb/v8 v8.15.1/go.mod h1:HgpQPKfcWe3kbuGGPmi+jatHreMase5C3Fp5dpdAy0Q=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 go.opentelemetry.io/auto/sdk v1.2.1 h1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=
