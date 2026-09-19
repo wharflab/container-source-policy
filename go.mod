@@ -4,7 +4,7 @@ go 1.26.6
 
 require (
 	github.com/containers/image/v5 v5.36.2
-	github.com/dustin/go-humanize v1.0.1
+	github.com/dustin/go-humanize v1.1.0
 	github.com/gkampitakis/go-snaps v0.5.23
 	github.com/google/go-containerregistry v0.22.1
 	github.com/moby/buildkit v0.33.0
