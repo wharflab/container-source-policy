@@ -1,13 +1,13 @@
 module github.com/wharflab/container-source-policy
 
-go 1.26.6
+go 1.26.8
 
 require (
 	github.com/containers/image/v5 v5.36.2
 	github.com/dustin/go-humanize v1.1.0
 	github.com/gkampitakis/go-snaps v0.5.23
 	github.com/google/go-containerregistry v0.22.1
-	github.com/moby/buildkit v0.33.0
+	github.com/moby/buildkit v0.33.1
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/pquerna/cachecontrol v0.2.0
 	github.com/urfave/cli/v3 v3.13.0
@@ -67,7 +67,7 @@ require (
 	github.com/vbauerster/cupwriter v0.0.5 // indirect
 	go.opentelemetry.io/otel v1.45.0 // indirect
 	go.opentelemetry.io/otel/trace v1.45.0 // indirect
-	golang.org/x/crypto v0.55.0 // indirect
+	golang.org/x/crypto v0.56.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
