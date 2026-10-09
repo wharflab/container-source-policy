@@ -12,7 +12,7 @@ require (
 	github.com/pquerna/cachecontrol v0.2.0
 	github.com/urfave/cli/v3 v3.14.0
 	github.com/vbauerster/mpb/v8 v8.16.2
-	golang.org/x/sync v0.23.0
+	golang.org/x/sync v0.24.0
 	golang.org/x/term v0.46.0
 )
 
