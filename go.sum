@@ -157,6 +157,8 @@ github.com/klauspost/compress v1.19.2 h1:hMRETovs/pu/dVWN7zIT1PGG8t509MwT6bO7XSi
 github.com/klauspost/compress v1.19.2/go.mod h1:cwPg85FWrGar70rWktvGQj8/hthj3wpl0PGDogxkrSQ=
 github.com/klauspost/compress v1.20.1 h1:T7kKElXUMXrUJ2E9QhQhxFtcK5rPyLdsGZvdbLMPdiQ=
 github.com/klauspost/compress v1.20.1/go.mod h1:LUdAzn7YLVvxLpc7y3V1m40wESHTgc1422pwwBSKYuI=
+github.com/klauspost/compress v1.20.2 h1:v5tiZvm1KGLyg5d5oXdXe3lsSPrbEUiKoXGia//I7Qo=
+github.com/klauspost/compress v1.20.2/go.mod h1:LUdAzn7YLVvxLpc7y3V1m40wESHTgc1422pwwBSKYuI=
 github.com/klauspost/pgzip v1.2.6 h1:8RXeL5crjEUFnR2/Sn6GJNWtSQ3Dk8pq4CL3jvdDyjU=
 github.com/klauspost/pgzip v1.2.6/go.mod h1:Ch1tH69qFZu15pkjo5kYi6mth2Zzwzt50oCQKQE9RUs=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
@@ -220,6 +222,8 @@ github.com/moby/buildkit v0.34.0 h1:bG5h2y1s5IVvc/uSGo6hVlYbd2eXVFRuADl9Zf+jeJM=
 github.com/moby/buildkit v0.34.0/go.mod h1:e+Za70y2a3nL1U2Y0P8TvhPyKp2Ok2NS+Q4siSArDiM=
 github.com/moby/buildkit v0.34.1 h1:jVdxsXX0UpU0q1Et+9lFezPmh9sGE6vF0TrKZaGlfy4=
 github.com/moby/buildkit v0.34.1/go.mod h1:e+Za70y2a3nL1U2Y0P8TvhPyKp2Ok2NS+Q4siSArDiM=
+github.com/moby/buildkit v0.34.2 h1:fXgOe79JW5zJNDumRtwTemOklLX66otQokObUXuiGJo=
+github.com/moby/buildkit v0.34.2/go.mod h1:HyFnF6kIPzHvqopF1+BKeGY8Ee9MXmfR2n+0Gd4Y69s=
 github.com/moby/docker-image-spec v1.3.1 h1:jMKff3w6PgbfSa69GfNg+zN/XLhfXJGnEx3Nl2EsFP0=
 github.com/moby/docker-image-spec v1.3.1/go.mod h1:eKmb5VW8vQEh/BAr2yvVNvuiJuY6UIocYsFu/DxxRpo=
 github.com/moby/sys/capability v0.4.0 h1:4D4mI6KlNtWMCM1Z/K0i7RV1FkX+DBDHKVJpCndZoHk=

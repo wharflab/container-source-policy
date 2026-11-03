@@ -7,7 +7,7 @@ require (
 	github.com/dustin/go-humanize v1.1.0
 	github.com/gkampitakis/go-snaps v0.5.24
 	github.com/google/go-containerregistry v0.22.1
-	github.com/moby/buildkit v0.34.1
+	github.com/moby/buildkit v0.34.2
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/pquerna/cachecontrol v0.2.0
 	github.com/urfave/cli/v3 v3.14.0
@@ -41,7 +41,7 @@ require (
 	github.com/goccy/go-yaml v1.19.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
-	github.com/klauspost/compress v1.20.1 // indirect
+	github.com/klauspost/compress v1.20.2 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/maruel/natural v1.3.0 // indirect
